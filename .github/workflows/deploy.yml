@@ -11,6 +11,10 @@ name: Deploy
 #   NEON_API_KEY        Neon console -> Account settings -> API keys
 #   NETLIFY_AUTH_TOKEN  Netlify -> User settings -> Applications -> access token
 #
+# The names above are conventional, not required: a secret is also
+# recognised by the prefix of its value, napi_ for Neon and nfp_ for
+# Netlify, so a pair saved under any two names still works.
+#
 # Re-running is safe: the Neon project and the Netlify site are reused, and
 # every SQL statement is an upsert.
 
@@ -55,25 +59,86 @@ jobs:
           cache: npm
 
       # ------------------------------------------------------------------
-      - name: Check that the two secrets exist
+      - name: Resolve the Neon and Netlify credentials
+        id: creds
         env:
-          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          ALL_SECRETS: ${{ toJSON(secrets) }}
         run: |
+          set -uo pipefail
+          f=$(mktemp); printf '%s' "$ALL_SECRETS" > "$f"
+
+          # Candidates are every repository secret except the automatic
+          # GITHUB_TOKEN. A secret is matched first by its conventional name
+          # and then, so that any name works, by the prefix of its value:
+          # Neon API keys begin with napi_ and Netlify tokens with nfp_.
+          pick_name() {
+            jq -r --arg exact "$1" --arg pfx "$2" '
+              to_entries
+              | map(select((.key | ascii_downcase) != "github_token"))
+              | map(select(.value | strings | length > 0))
+              | ( map(select(.key == $exact)) + map(select(.value | startswith($pfx))) )
+              | (.[0].key // "")' < "$f"
+          }
+
+          # With exactly two secrets, once one is identified the other is the
+          # remaining one. This rescues Netlify tokens in the older unprefixed
+          # format, and pairs that were saved under unrelated names.
+          other_name() {
+            jq -r --arg used "$1" '
+              to_entries
+              | map(select((.key | ascii_downcase) != "github_token"))
+              | map(select(.value | strings | length > 0))
+              | map(select(.key != $used))
+              | if length == 1 then .[0].key else "" end' < "$f"
+          }
+
+          value_of() { jq -r --arg k "$1" '.[$k] // ""' < "$f"; }
+
+          neon_name=$(pick_name NEON_API_KEY napi_)
+          netlify_name=$(pick_name NETLIFY_AUTH_TOKEN nfp_)
+          [ -z "$netlify_name" ] && [ -n "$neon_name" ] && netlify_name=$(other_name "$neon_name")
+          [ -z "$neon_name" ] && [ -n "$netlify_name" ] && neon_name=$(other_name "$netlify_name")
+
+          # Trailing newlines survive a copy-paste and break Authorization
+          # headers, so strip whitespace from both ends.
+          trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; printf '%s' "${v%"${v##*[![:space:]]}"}"; }
+          neon=$(trim "$(value_of "$neon_name" | tr -d '\r\n')")
+          netlify=$(trim "$(value_of "$netlify_name" | tr -d '\r\n')")
+          [ -n "$neon" ] && echo "::add-mask::$neon"
+          [ -n "$netlify" ] && echo "::add-mask::$netlify"
+          rm -f "$f"
+
           missing=0
-          [ -z "$NEON_API_KEY" ]       && { echo "::error::Repository secret NEON_API_KEY is missing";       missing=1; }
-          [ -z "$NETLIFY_AUTH_TOKEN" ] && { echo "::error::Repository secret NETLIFY_AUTH_TOKEN is missing"; missing=1; }
-          if [ "$missing" = "1" ]; then
-            echo "Add them under Settings -> Secrets and variables -> Actions -> New repository secret."
-            exit 1
+          if [ -z "$neon" ]; then
+            echo "::error::No secret holds a Neon API key. Add one named NEON_API_KEY, or any name with a value starting with napi_."
+            missing=1
+          else
+            echo "::notice::Secret '$neon_name' is being used as the Neon API key."
+            case "$neon" in napi_*) ;; *) echo "::warning::Secret '$neon_name' does not start with napi_, so it may not be a Neon API key." ;; esac
           fi
-          echo "Both secrets are present."
+          if [ -z "$netlify" ]; then
+            echo "::error::No secret holds a Netlify access token. Add one named NETLIFY_AUTH_TOKEN, or any name with a value starting with nfp_."
+            missing=1
+          else
+            echo "::notice::Secret '$netlify_name' is being used as the Netlify access token."
+          fi
+          if [ -n "$neon" ] && [ "$neon" = "$netlify" ]; then
+            echo "::error::Secrets '$neon_name' and '$netlify_name' hold the same value. One must be the Neon API key and the other the Netlify access token."
+            missing=1
+          fi
+          [ "$missing" = "1" ] && exit 1
+
+          {
+            echo "neon_key=$neon"
+            echo "netlify_token=$netlify"
+          } >> "$GITHUB_OUTPUT"
+          echo "Both credentials resolved."
 
       # ------------------------------------------------------------------
       - name: Create or reuse the Neon project
         id: neon
         env:
-          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_API_KEY: ${{ steps.creds.outputs.neon_key }}
         run: |
           set -euo pipefail
           API=https://console.neon.tech/api/v2
@@ -143,7 +208,7 @@ jobs:
       - name: Create or reuse the Netlify site
         id: site
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_AUTH_TOKEN: ${{ steps.creds.outputs.netlify_token }}
         run: |
           set -euo pipefail
           API=https://api.netlify.com/api/v1
@@ -205,7 +270,7 @@ jobs:
 
       - name: Put DATABASE_URL on the site
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_AUTH_TOKEN: ${{ steps.creds.outputs.netlify_token }}
           NETLIFY_SITE_ID: ${{ steps.site.outputs.site_id }}
           DATABASE_URL: ${{ steps.neon.outputs.database_url }}
         run: |
@@ -235,7 +300,7 @@ jobs:
       - name: Deploy
         id: deploy
         env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_AUTH_TOKEN: ${{ steps.creds.outputs.netlify_token }}
           NETLIFY_SITE_ID: ${{ steps.site.outputs.site_id }}
         run: |
           set -euo pipefail
