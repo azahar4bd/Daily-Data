@@ -1,6 +1,18 @@
 {
-  "name":"branch-report-app","version":"1.0.0","private":true,"type":"module",
-  "scripts":{"dev":"netlify dev","build":"echo static-build"},
-  "dependencies":{"@neondatabase/serverless":"^0.10.4"},
-  "devDependencies":{"netlify-cli":"^17.10.1"}
+  "name": "branch-report-app",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Branch-wise daily data collection dashboard (Netlify + Neon Postgres)",
+  "scripts": {
+    "dev": "netlify dev",
+    "serve": "python3 -m http.server 8080 --bind 0.0.0.0",
+    "build": "echo static-build"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.10.1"
+  }
 }

@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# netlify / build output
+.netlify/
+dist/
+build/
+out/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# workspace / editor junk
+workspace-*.zip
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# spreadsheet temp files
+~$*.xlsx
+*.tmp

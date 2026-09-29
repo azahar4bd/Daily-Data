@@ -1,0 +1,54 @@
+{
+  "_comment": "Offline demo data. Used only when /api/* is unreachable or the database is empty. Numbers extracted verbatim from the original hard-coded index.html.",
+  "org": {
+    "name_en": "Bandhu Kallyan Foundation",
+    "name_bn": "বন্ধু কল্যাণ ফাউন্ডেশন",
+    "area_en": "Narail Area",
+    "area_bn": "নড়াইল এরিয়া"
+  },
+  "branches": [
+    { "id": 1, "name": "Lohagora", "bn_name": "লোহাগড়া" },
+    { "id": 2, "name": "Gobra", "bn_name": "গোবরা" },
+    { "id": 3, "name": "Mohajon", "bn_name": "মহাজন" },
+    { "id": 4, "name": "Noldi", "bn_name": "নলদী" },
+    { "id": 5, "name": "Narail", "bn_name": "নড়াইল সদর" }
+  ],
+  "daily": {
+    "2026-09-28": [
+      { "branch": "Lohagora", "members": 777, "loanee": 635, "savings": 19731838, "kisti": 514, "disbursement": 0, "loan_outstanding": 55093843, "overdue": 2833149, "recovery": 97 },
+      { "branch": "Gobra", "members": 910, "loanee": 746, "savings": 16407489, "kisti": 424, "disbursement": 50000, "loan_outstanding": 52562754, "overdue": 3140817, "recovery": 96 },
+      { "branch": "Mohajon", "members": 913, "loanee": 767, "savings": 23139576, "kisti": 638, "disbursement": 60000, "loan_outstanding": 68860455, "overdue": 3135352, "recovery": 93 },
+      { "branch": "Noldi", "members": 885, "loanee": 693, "savings": 15836369, "kisti": 512, "disbursement": 0, "loan_outstanding": 52762619, "overdue": 2984488, "recovery": 100 },
+      { "branch": "Narail", "members": 863, "loanee": 700, "savings": 17598499, "kisti": 491, "disbursement": 0, "loan_outstanding": 61450252, "overdue": 3237365, "recovery": 93 }
+    ],
+    "2026-09-27": [
+      { "branch": "Lohagora", "members": 777, "loanee": 638, "savings": 19775794, "kisti": 500, "disbursement": 190000, "loan_outstanding": null, "overdue": 2913466, "recovery": 95 },
+      { "branch": "Gobra", "members": 908, "loanee": 746, "savings": 16365069, "kisti": 398, "disbursement": 770000, "loan_outstanding": null, "overdue": 3292866, "recovery": 96 },
+      { "branch": "Mohajon", "members": 913, "loanee": 769, "savings": 23156903, "kisti": 625, "disbursement": 0, "loan_outstanding": null, "overdue": 3308944, "recovery": 100 },
+      { "branch": "Noldi", "members": 884, "loanee": 695, "savings": 15838481, "kisti": 505, "disbursement": 0, "loan_outstanding": null, "overdue": 3049093, "recovery": 100 },
+      { "branch": "Narail", "members": 866, "loanee": 702, "savings": 17607388, "kisti": 468, "disbursement": 625000, "loan_outstanding": null, "overdue": 3459740, "recovery": 89 }
+    ]
+  },
+  "compare": {
+    "from_label": "31-Jul-26",
+    "to_label": "28-Sep-26",
+    "rows": [
+      { "branch": "Narail", "member_from": 858, "member_to": 863, "loanee_from": 705, "loanee_to": 700, "savings_from": 17448810, "savings_to": 17598499, "outstanding_from": 60666312, "outstanding_to": 61450252, "otr": 93, "disbursement": 7015000 },
+      { "branch": "Noldi", "member_from": 873, "member_to": 885, "loanee_from": 686, "loanee_to": 693, "savings_from": 15480081, "savings_to": 15836369, "outstanding_from": 51742527, "outstanding_to": 52762619, "otr": 100, "disbursement": 7590000 },
+      { "branch": "Lohagora", "member_from": 780, "member_to": 777, "loanee_from": 640, "loanee_to": 635, "savings_from": 19409733, "savings_to": 19731838, "outstanding_from": 53930160, "outstanding_to": 55093843, "otr": 97, "disbursement": 7520000 },
+      { "branch": "Mohajon", "member_from": 913, "member_to": 913, "loanee_from": 765, "loanee_to": 767, "savings_from": 22755262, "savings_to": 23139576, "outstanding_from": 67533066, "outstanding_to": 68860455, "otr": 93, "disbursement": 9286000 },
+      { "branch": "Gobra", "member_from": 897, "member_to": 910, "loanee_from": 741, "loanee_to": 746, "savings_from": 16266960, "savings_to": 16407489, "outstanding_from": 51988891, "outstanding_to": 52562754, "otr": 96, "disbursement": 5753000 }
+    ]
+  },
+  "closing": {
+    "month": "2026-09",
+    "month_label": "সেপ্টেম্বর-২০২৬",
+    "rows": [
+      { "sl": 1, "branch_bn": "নড়াইল সদর", "samiti": 57, "member_change": 15, "member_total": 858, "loanee_change": 5, "loanee_total": 705, "savings_change": 342499, "savings_total": 17448810, "loan_change": -90475, "loan_total": 60666312, "overdue_change": 36772, "overdue_total": 2770418, "otr_prev": 98.77, "otr_current": 98.92 },
+      { "sl": 2, "branch_bn": "নলদী", "samiti": 63, "member_change": 7, "member_total": 873, "loanee_change": -5, "loanee_total": 686, "savings_change": 305552, "savings_total": 15480081, "loan_change": 531913, "loan_total": 51742527, "overdue_change": -6005, "overdue_total": 2838342, "otr_prev": 99.66, "otr_current": 99.38 },
+      { "sl": 3, "branch_bn": "লোহাগড়া", "samiti": 68, "member_change": 7, "member_total": 780, "loanee_change": -1, "loanee_total": 640, "savings_change": 378324, "savings_total": 19409733, "loan_change": 285393, "loan_total": 53930160, "overdue_change": 19948, "overdue_total": 2632579, "otr_prev": 99.11, "otr_current": 99.19 },
+      { "sl": 4, "branch_bn": "মহাজন", "samiti": 60, "member_change": 13, "member_total": 913, "loanee_change": 3, "loanee_total": 765, "savings_change": 410331, "savings_total": 22755262, "loan_change": -642522, "loan_total": 67533066, "overdue_change": 36038, "overdue_total": 2599812, "otr_prev": 99.01, "otr_current": 98.89 },
+      { "sl": 5, "branch_bn": "গোবরা", "samiti": 72, "member_change": 4, "member_total": 897, "loanee_change": -6, "loanee_total": 741, "savings_change": 289524, "savings_total": 16266960, "loan_change": 504518, "loan_total": 51988891, "overdue_change": -5618, "overdue_total": 2473437, "otr_prev": 99.40, "otr_current": 99.40 }
+    ]
+  }
+}

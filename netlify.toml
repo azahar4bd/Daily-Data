@@ -1,6 +1,10 @@
 [build]
   publish = "."
   functions = "netlify/functions"
+  command = "echo static-build"
+
+[functions]
+  node_bundler = "esbuild"
 
 [dev]
   framework = "#static"
@@ -10,3 +14,14 @@
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
+
+# never let the browser cache the JSON fallback or the app shell
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
