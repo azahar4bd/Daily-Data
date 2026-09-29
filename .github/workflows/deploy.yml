@@ -144,19 +144,40 @@ jobs:
           API=https://console.neon.tech/api/v2
           auth=(-H "Authorization: Bearer $NEON_API_KEY" -H "Accept: application/json")
 
+          # Neon requires org_id on /projects for personal API keys; an
+          # organization key infers it. Try without first, and on rejection
+          # look the organization up and retry.
+          org=""
           code=$(curl -sS -o /tmp/projects.json -w '%{http_code}' "${auth[@]}" "$API/projects")
           if [ "$code" != "200" ]; then
-            echo "::error::Neon API returned HTTP $code when listing projects. Is NEON_API_KEY valid?"
-            jq -r '.message // .' /tmp/projects.json 2>/dev/null || cat /tmp/projects.json
-            exit 1
+            echo "Listing projects without org_id returned HTTP $code: $(jq -r '.message // empty' /tmp/projects.json 2>/dev/null)"
+            ocode=$(curl -sS -o /tmp/orgs.json -w '%{http_code}' "${auth[@]}" "$API/users/me/organizations")
+            if [ "$ocode" != "200" ]; then
+              echo "::error::Neon rejected the API key (HTTP $code listing projects, HTTP $ocode listing organizations). Create a new personal API key at https://console.neon.tech/app/settings/api-keys and update the secret."
+              jq -r '.message // .' /tmp/orgs.json 2>/dev/null || cat /tmp/orgs.json
+              exit 1
+            fi
+            org=$(jq -r 'if type == "array" then (.[0].id // empty) else ((.organizations // []) | .[0].id // empty) end' /tmp/orgs.json 2>/dev/null || true)
+            if [ -z "$org" ]; then
+              echo "::error::The Neon API key belongs to no organization, so projects cannot be listed."
+              cat /tmp/orgs.json
+              exit 1
+            fi
+            echo "Using Neon organization $org"
+            code=$(curl -sS -o /tmp/projects.json -w '%{http_code}' "${auth[@]}" "$API/projects?org_id=$org&limit=400")
+            if [ "$code" != "200" ]; then
+              echo "::error::Neon API returned HTTP $code when listing projects for organization $org."
+              jq -r '.message // .' /tmp/projects.json 2>/dev/null || cat /tmp/projects.json
+              exit 1
+            fi
           fi
 
           pid=$(jq -r --arg n "$NEON_PROJECT_NAME" '.projects[] | select(.name==$n) | .id' /tmp/projects.json | head -1)
 
           if [ -z "$pid" ]; then
             echo "Creating Neon project '$NEON_PROJECT_NAME' in $NEON_REGION ..."
-            body=$(jq -n --arg n "$NEON_PROJECT_NAME" --arg r "$NEON_REGION" \
-                     '{project:{name:$n, region_id:$r}}')
+            body=$(jq -n --arg n "$NEON_PROJECT_NAME" --arg r "$NEON_REGION" --arg o "$org" \
+                     '{project: ({name:$n, region_id:$r} + (if $o == "" then {} else {org_id:$o} end))}')
             code=$(curl -sS -o /tmp/create.json -w '%{http_code}' -X POST "${auth[@]}" \
                      -H 'Content-Type: application/json' -d "$body" "$API/projects")
             if [ "$code" != "201" ] && [ "$code" != "200" ]; then
