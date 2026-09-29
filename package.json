@@ -1,0 +1,6 @@
+{
+  "name":"branch-report-app","version":"1.0.0","private":true,"type":"module",
+  "scripts":{"dev":"netlify dev","build":"echo static-build"},
+  "dependencies":{"@neondatabase/serverless":"^0.10.4"},
+  "devDependencies":{"netlify-cli":"^17.10.1"}
+}
