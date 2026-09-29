@@ -3,6 +3,11 @@
   functions = "netlify/functions"
   command = "echo static-build"
 
+# Shown by the "Deploy to Netlify" button so the database URL is asked for
+# during setup instead of being forgotten afterwards.
+[template.environment]
+  DATABASE_URL = "Neon connection string, e.g. postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require"
+
 [functions]
   node_bundler = "esbuild"
 

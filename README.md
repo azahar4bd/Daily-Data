@@ -5,6 +5,11 @@
 স্ট্যাটিক ফ্রন্টএন্ড + Netlify Function + Neon Postgres। ডাটাবেসে পৌঁছানো না গেলে অ্যাপ
 `data/seed.json` থেকে ডেমো ডেটা দেখায়, তাই পেজ কখনো ফাঁকা থাকে না।
 
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/azahar4bd/Daily-Data)
+
+ধাপে ধাপে নির্দেশনা: **[DEPLOY.md](DEPLOY.md)** — Neon-এর জন্য এক-পেস্ট সেটআপ
+([`deploy/neon-setup.sql`](deploy/neon-setup.sql)) সহ।
+
 ---
 
 ## ফোল্ডার কাঠামো
