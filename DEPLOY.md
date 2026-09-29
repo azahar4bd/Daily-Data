@@ -1,7 +1,42 @@
-# ডিপ্লয় গাইড — Netlify + Neon
+# ডিপ্লয় গাইড
 
-সব মিলিয়ে ৫–১০ মিনিট। শেষে একটা **স্থায়ী লিংক** পাবেন যেটা কখনো বদলাবে না,
-আর পরে কোড পুশ করলেই নিজে থেকে আবার ডিপ্লয় হবে।
+## 🚀 সহজ পথ — আপনার শুধু ২টা সিক্রেট যোগ করতে হবে
+
+বাকি সবকিছু [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+নিজে থেকে করে ফেলবে: Neon প্রজেক্ট তৈরি → টেবিল ও ডেটা লোড →
+Netlify সাইট তৈরি → `DATABASE_URL` বসানো → ডিপ্লয় → লাইভ লিংক পরীক্ষা।
+
+### যা করতে হবে
+
+1. **Neon API key নিন** — <https://console.neon.tech> → ডানে উপরে প্রোফাইল →
+   **Account settings** → **API keys** → **Create new API key** → কপি করুন।
+
+2. **Netlify token নিন** — <https://app.netlify.com/user/applications> →
+   **Personal access tokens** → **New access token** → কপি করুন।
+
+3. **দুটোই GitHub-এ বসান** —
+   <https://github.com/azahar4bd/Daily-Data/settings/secrets/actions>
+   → **New repository secret** (দুইবার):
+
+   | Name (হুবহু এভাবে লিখুন) | Secret |
+   |---|---|
+   | `NEON_API_KEY` | Neon থেকে পাওয়া key |
+   | `NETLIFY_AUTH_TOKEN` | Netlify থেকে পাওয়া token |
+
+4. ব্যস। এরপর <https://github.com/azahar4bd/Daily-Data/actions> →
+   **Deploy** → **Run workflow** চাপুন (branch: `arena/01a0eb92-daily-data`)।
+
+৩–৪ মিনিট পর রানের **Summary**-তে লাইভ লিংক দেখাবে, যেমন
+`https://bkf-daily-data.netlify.app`।
+
+> **পরে আবার ডিপ্লয়:** শুধু `git push` — একই ওয়ার্কফ্লো আবার চলবে, লিংক একই থাকবে।
+> ডাটাবেস ও সাইট নতুন করে তৈরি হবে না, আগেরটাই ব্যবহার হবে।
+
+---
+
+## হাতে হাতে করতে চাইলে (উপরেরটা না চাইলে)
+
+নিচের ধাপগুলো একই কাজ ব্রাউজারে করে। সব মিলিয়ে ৫–১০ মিনিট।
 
 ---
 

@@ -1,0 +1,269 @@
+name: Deploy
+
+# Does the whole thing on GitHub's runners:
+#   1. creates (or reuses) a Neon Postgres project
+#   2. loads schema.sql + the data imported from sheet.xlsx
+#   3. creates (or reuses) a Netlify site
+#   4. sets DATABASE_URL on that site
+#   5. deploys the app and prints the live URL
+#
+# It only needs two repository secrets:
+#   NEON_API_KEY        Neon console -> Account settings -> API keys
+#   NETLIFY_AUTH_TOKEN  Netlify -> User settings -> Applications -> access token
+#
+# Re-running is safe: the Neon project and the Netlify site are reused, and
+# every SQL statement is an upsert.
+
+on:
+  push:
+    branches:
+      - main
+      - arena/01a0eb92-daily-data
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NEON_PROJECT_NAME: daily-data
+  NEON_REGION: aws-ap-southeast-1
+  NETLIFY_SITE_NAME: bkf-daily-data
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # ------------------------------------------------------------------
+      - name: Check that the two secrets exist
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          missing=0
+          [ -z "$NEON_API_KEY" ]       && { echo "::error::Repository secret NEON_API_KEY is missing";       missing=1; }
+          [ -z "$NETLIFY_AUTH_TOKEN" ] && { echo "::error::Repository secret NETLIFY_AUTH_TOKEN is missing"; missing=1; }
+          if [ "$missing" = "1" ]; then
+            echo "Add them under Settings -> Secrets and variables -> Actions -> New repository secret."
+            exit 1
+          fi
+          echo "Both secrets are present."
+
+      # ------------------------------------------------------------------
+      - name: Create or reuse the Neon project
+        id: neon
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          set -euo pipefail
+          API=https://console.neon.tech/api/v2
+          auth=(-H "Authorization: Bearer $NEON_API_KEY" -H "Accept: application/json")
+
+          code=$(curl -sS -o /tmp/projects.json -w '%{http_code}' "${auth[@]}" "$API/projects")
+          if [ "$code" != "200" ]; then
+            echo "::error::Neon API returned HTTP $code when listing projects. Is NEON_API_KEY valid?"
+            jq -r '.message // .' /tmp/projects.json 2>/dev/null || cat /tmp/projects.json
+            exit 1
+          fi
+
+          pid=$(jq -r --arg n "$NEON_PROJECT_NAME" '.projects[] | select(.name==$n) | .id' /tmp/projects.json | head -1)
+
+          if [ -z "$pid" ]; then
+            echo "Creating Neon project '$NEON_PROJECT_NAME' in $NEON_REGION ..."
+            body=$(jq -n --arg n "$NEON_PROJECT_NAME" --arg r "$NEON_REGION" \
+                     '{project:{name:$n, region_id:$r}}')
+            code=$(curl -sS -o /tmp/create.json -w '%{http_code}' -X POST "${auth[@]}" \
+                     -H 'Content-Type: application/json' -d "$body" "$API/projects")
+            if [ "$code" != "201" ] && [ "$code" != "200" ]; then
+              echo "::error::Could not create the Neon project (HTTP $code)"
+              jq -r '.message // .' /tmp/create.json 2>/dev/null || cat /tmp/create.json
+              exit 1
+            fi
+            pid=$(jq -r '.project.id' /tmp/create.json)
+            uri=$(jq -r '.connection_uris[0].connection_uri' /tmp/create.json)
+            echo "Created project $pid"
+          else
+            echo "Reusing existing Neon project $pid"
+            db=$(curl -sS "${auth[@]}" "$API/projects/$pid/databases" | jq -r '.databases[0].name')
+            role=$(curl -sS "${auth[@]}" "$API/projects/$pid/branches" \
+                   | jq -r '.branches[] | select(.default==true) | .id' | head -1)
+            role_name=$(curl -sS "${auth[@]}" "$API/projects/$pid/branches/$role/roles" \
+                        | jq -r '.roles[0].name')
+            uri=$(curl -sS "${auth[@]}" \
+                  "$API/projects/$pid/connection_uri?database_name=$db&role_name=$role_name" \
+                  | jq -r '.uri')
+          fi
+
+          if [ -z "$uri" ] || [ "$uri" = "null" ]; then
+            echo "::error::Neon did not return a connection string"
+            exit 1
+          fi
+          echo "::add-mask::$uri"
+          echo "database_url=$uri" >> "$GITHUB_OUTPUT"
+          echo "project_id=$pid" >> "$GITHUB_OUTPUT"
+          echo "Connection string obtained (masked)."
+
+      # ------------------------------------------------------------------
+      - name: Load the schema and the spreadsheet data
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.database_url }}
+        run: |
+          set -euo pipefail
+          psql --version
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f deploy/neon-setup.sql > /tmp/psql.log 2>&1 \
+            || { echo "::error::Loading deploy/neon-setup.sql failed"; tail -40 /tmp/psql.log; exit 1; }
+          echo "Row counts:"
+          psql "$DATABASE_URL" -At -F ' | ' -c \
+            "select 'branches', count(*) from branches
+             union all select 'daily_entries', count(*) from daily_entries
+             union all select 'distinct dates', count(distinct entry_date) from daily_entries
+             union all select 'month_closings', count(*) from month_closings"
+
+      # ------------------------------------------------------------------
+      - name: Create or reuse the Netlify site
+        id: site
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          API=https://api.netlify.com/api/v1
+          auth=(-H "Authorization: Bearer $NETLIFY_AUTH_TOKEN")
+
+          code=$(curl -sS -o /tmp/me.json -w '%{http_code}' "${auth[@]}" "$API/user")
+          if [ "$code" != "200" ]; then
+            echo "::error::Netlify API returned HTTP $code. Is NETLIFY_AUTH_TOKEN valid?"
+            exit 1
+          fi
+          echo "Authenticated as $(jq -r '.email // .full_name // "unknown"' /tmp/me.json)"
+
+          curl -sS "${auth[@]}" "$API/sites?per_page=200" -o /tmp/sites.json
+          sid=$(jq -r --arg n "$NETLIFY_SITE_NAME" '.[] | select(.name==$n) | .id' /tmp/sites.json | head -1)
+
+          if [ -z "$sid" ]; then
+            slug=$(curl -sS "${auth[@]}" "$API/accounts" | jq -r '.[0].slug')
+            echo "Creating Netlify site '$NETLIFY_SITE_NAME' under account '$slug' ..."
+            code=$(curl -sS -o /tmp/site.json -w '%{http_code}' -X POST "${auth[@]}" \
+                     -H 'Content-Type: application/json' \
+                     -d "$(jq -n --arg n "$NETLIFY_SITE_NAME" '{name:$n}')" \
+                     "$API/$slug/sites")
+            if [ "$code" != "201" ] && [ "$code" != "200" ]; then
+              alt="$NETLIFY_SITE_NAME-$(date +%s | tail -c 5)"
+              echo "Name '$NETLIFY_SITE_NAME' is not available (HTTP $code); trying '$alt'."
+              code=$(curl -sS -o /tmp/site.json -w '%{http_code}' -X POST "${auth[@]}" \
+                       -H 'Content-Type: application/json' \
+                       -d "$(jq -n --arg n "$alt" '{name:$n}')" "$API/$slug/sites")
+              if [ "$code" != "201" ] && [ "$code" != "200" ]; then
+                echo "Still no luck (HTTP $code); letting Netlify pick the name."
+                code=$(curl -sS -o /tmp/site.json -w '%{http_code}' -X POST "${auth[@]}" \
+                         -H 'Content-Type: application/json' -d '{}' "$API/$slug/sites")
+              fi
+            fi
+            if [ "$code" != "201" ] && [ "$code" != "200" ]; then
+              echo "::error::Could not create a Netlify site (HTTP $code)"
+              cat /tmp/site.json
+              exit 1
+            fi
+            sid=$(jq -r '.id // empty' /tmp/site.json)
+            name=$(jq -r '.name // empty' /tmp/site.json)
+          else
+            name="$NETLIFY_SITE_NAME"
+            echo "Reusing existing site $sid"
+          fi
+
+          if [ -z "$sid" ] || [ "$sid" = "null" ]; then
+            echo "::error::Netlify did not return a site id"
+            cat /tmp/site.json 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "site_id=$sid" >> "$GITHUB_OUTPUT"
+          echo "site_name=$name" >> "$GITHUB_OUTPUT"
+          echo "Site: $name ($sid)"
+
+      # ------------------------------------------------------------------
+      - run: npm ci
+
+      - name: Put DATABASE_URL on the site
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ steps.site.outputs.site_id }}
+          DATABASE_URL: ${{ steps.neon.outputs.database_url }}
+        run: |
+          set -uo pipefail
+          # --force exists to skip the overwrite prompt; tolerate CLI versions
+          # that spell it differently, then verify the value really landed.
+          npx --yes netlify-cli@17 env:set DATABASE_URL "$DATABASE_URL" \
+              --site "$NETLIFY_SITE_ID" --force \
+            || npx --yes netlify-cli@17 env:set DATABASE_URL "$DATABASE_URL" \
+              --site "$NETLIFY_SITE_ID"
+
+          got=$(npx --yes netlify-cli@17 env:get DATABASE_URL --site "$NETLIFY_SITE_ID" 2>/dev/null | tr -d '[:space:]')
+          if [ -z "$got" ] || [ "$got" = "null" ]; then
+            echo "::error::DATABASE_URL was not stored on the Netlify site."
+            exit 1
+          fi
+          echo "DATABASE_URL is set on the site (length ${#got})."
+
+      # ------------------------------------------------------------------
+      - name: Stage the publish directory
+        run: |
+          mkdir -p _site
+          cp index.html netlify.toml _site/
+          cp -r assets data _site/
+          find _site -type f | sort
+
+      - name: Deploy
+        id: deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ steps.site.outputs.site_id }}
+        run: |
+          set -euo pipefail
+          npx --yes netlify-cli@17 deploy --prod \
+            --dir _site --functions netlify/functions \
+            --site "$NETLIFY_SITE_ID" \
+            --message "${{ github.sha }}" \
+            --json > /tmp/deploy.json
+          cat /tmp/deploy.json
+          url=$(jq -r '.site_url // .url' /tmp/deploy.json)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Check the live site
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          echo "Waiting for $URL to answer ..."
+          for i in $(seq 1 20); do
+            health=$(curl -sS --max-time 20 "$URL/api/health" || true)
+            echo "  attempt $i: $health"
+            case "$health" in *'"ok":true'*) ok=1; break;; esac
+            sleep 6
+          done
+          page=$(curl -sS -o /dev/null -w '%{http_code}' "$URL/")
+          echo "index.html -> HTTP $page"
+          rows=$(curl -sS --max-time 20 "$URL/api/daily?date=2026-09-28" | jq 'length' || echo 0)
+          echo "rows for 2026-09-28 -> $rows"
+
+          {
+            echo "## Deployed"
+            echo ""
+            echo "**Live site: $URL**"
+            echo ""
+            echo "| check | result |"
+            echo "| --- | --- |"
+            echo "| \`/\` | HTTP $page |"
+            echo "| \`/api/health\` | ${health:-no answer} |"
+            echo "| rows on 2026-09-28 | $rows |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${ok:-0}" != "1" ]; then
+            echo "::warning::/api/health never reported ok. The site is up but the database link needs a look."
+          fi
