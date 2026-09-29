@@ -375,9 +375,10 @@ function buildSql(daily, closing, month) {
 }
 
 async function writeToDb(daily, closing, month, log) {
-  if (!process.env.DATABASE_URL) throw new Error('--db needs DATABASE_URL to be set (see .env.example)');
+  const url = process.env.DATABASE_URL || process.env.NETLIFY_DATABASE_URL || process.env.NEON_DATABASE_URL;
+  if (!url) throw new Error('--db needs DATABASE_URL to be set (see .env.example)');
   const { neon } = await import('@neondatabase/serverless');
-  const sql = neon(process.env.DATABASE_URL);
+  const sql = neon(url);
 
   const ids = new Map();
   for (const row of await sql`select id, name from branches`) ids.set(row.name, row.id);

@@ -14,16 +14,30 @@ const json = (body, statusCode = 200) => ({
   body: JSON.stringify(body)
 });
 
-/** Lazily create the SQL client so a missing DATABASE_URL doesn't crash the module. */
+/**
+ * Accept whichever name the connection string arrived under:
+ *   DATABASE_URL          set by hand
+ *   NETLIFY_DATABASE_URL  set by the Netlify Neon extension
+ *   NEON_DATABASE_URL     set by some Neon integrations
+ */
+const dbUrl = () =>
+  process.env.DATABASE_URL ||
+  process.env.NETLIFY_DATABASE_URL ||
+  process.env.NEON_DATABASE_URL ||
+  null;
+
+/** Lazily create the SQL client so a missing connection string can't crash the module. */
 let _sql;
+let _sqlFor;
 function db() {
-  if (!process.env.DATABASE_URL) {
-    const err = new Error('DATABASE_URL is not configured');
+  const url = dbUrl();
+  if (!url) {
+    const err = new Error('No database connection string. Set DATABASE_URL (or install the Netlify Neon extension).');
     err.statusCode = 503;
     err.code = 'db_not_configured';
     throw err;
   }
-  if (!_sql) _sql = neon(process.env.DATABASE_URL);
+  if (!_sql || _sqlFor !== url) { _sql = neon(url); _sqlFor = url; }
   return _sql;
 }
 
@@ -81,10 +95,13 @@ export async function handler(event) {
 
   try {
     if (route === 'health') {
-      if (!process.env.DATABASE_URL) return json({ ok: false, database: 'not_configured' }, 503);
+      const source = process.env.DATABASE_URL ? 'DATABASE_URL'
+        : process.env.NETLIFY_DATABASE_URL ? 'NETLIFY_DATABASE_URL'
+        : process.env.NEON_DATABASE_URL ? 'NEON_DATABASE_URL' : null;
+      if (!source) return json({ ok: false, database: 'not_configured' }, 503);
       const sql = db();
-      await sql`select 1`;
-      return json({ ok: true, database: 'connected' });
+      const rows = await sql`select count(*)::int as branches from branches`;
+      return json({ ok: true, database: 'connected', variable: source, branches: rows[0].branches });
     }
 
     if (route === 'branches' && method === 'GET') {

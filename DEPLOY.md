@@ -34,6 +34,31 @@ Netlify সাইট তৈরি → `DATABASE_URL` বসানো → ডি�
 
 ---
 
+## 🟢 টোকেন ছাড়া পথ — সব ব্রাউজারে, কোনো key কপি করতে হবে না
+
+কোথাও টোকেন বানাতে না চাইলে এটাই সবচেয়ে সহজ।
+
+1. **সাইট বানান** — README-র [**Deploy to Netlify**](https://app.netlify.com/start/deploy?repository=https://github.com/azahar4bd/Daily-Data)
+   বাটনে ক্লিক → Netlify-তে লগইন → GitHub অনুমতি দিন → **Save & Deploy**।
+   (`DATABASE_URL` চাইলে আপাতত ফাঁকা রাখুন।)
+
+2. **ডাটাবেস যোগ করুন** — Netlify-তে সাইট খুলে
+   **Extensions** → **Neon** খুঁজে **Install** → **Add database**।
+   Netlify নিজেই একটা Neon ডাটাবেস বানিয়ে কানেকশন স্ট্রিং বসিয়ে দেবে।
+
+   > অ্যাপটা `DATABASE_URL`, `NETLIFY_DATABASE_URL`, `NEON_DATABASE_URL` —
+   > তিন নামের যেটাই পাক সেটাই ব্যবহার করে, তাই আলাদা করে কিছু সেট করতে হবে না।
+
+3. **ডেটা ঢোকান** — Neon কনসোলে (Netlify থেকেই লিংক পাবেন) **SQL Editor** খুলুন,
+   [`deploy/neon-setup.sql`](deploy/neon-setup.sql) ফাইলটা পুরো কপি-পেস্ট করে **Run**।
+
+4. Netlify-তে **Deploys** → **Trigger deploy** → **Clear cache and deploy site**।
+
+`https://<your-site>.netlify.app/api/health` খুললে দেখবেন
+`{"ok":true,"database":"connected","variable":"NETLIFY_DATABASE_URL","branches":5}`।
+
+---
+
 ## হাতে হাতে করতে চাইলে (উপরেরটা না চাইলে)
 
 নিচের ধাপগুলো একই কাজ ব্রাউজারে করে। সব মিলিয়ে ৫–১০ মিনিট।
