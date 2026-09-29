@@ -1,13 +1,17 @@
 {
   "name": "branch-report-app",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Branch-wise daily data collection dashboard (Netlify + Neon Postgres)",
   "scripts": {
     "dev": "netlify dev",
     "serve": "python3 -m http.server 8080 --bind 0.0.0.0",
-    "build": "echo static-build"
+    "build": "echo static-build",
+    "import": "node scripts/import-sheet.mjs --dry-run",
+    "import:seed": "node scripts/import-sheet.mjs --seed",
+    "import:sql": "node scripts/import-sheet.mjs --sql import.sql",
+    "import:db": "node scripts/import-sheet.mjs --db"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4"
