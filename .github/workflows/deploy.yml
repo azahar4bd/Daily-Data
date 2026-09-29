@@ -36,6 +36,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Reports *names only* (never values) as annotations, so a misplaced or
+      # misspelled secret can be spotted without digging through the logs.
+      - name: Report which secrets and variables are visible
+        env:
+          SECRET_KEYS: ${{ toJSON(secrets) }}
+          VAR_KEYS: ${{ toJSON(vars) }}
+        run: |
+          set -uo pipefail
+          s=$(printf '%s' "$SECRET_KEYS" | jq -r 'keys | map(select(. != "github_token")) | join(", ")' 2>/dev/null)
+          v=$(printf '%s' "$VAR_KEYS"    | jq -r 'keys | join(", ")' 2>/dev/null)
+          echo "::warning::Secrets visible to this workflow: ${s:-(none)}"
+          echo "::warning::Variables visible to this workflow: ${v:-(none)}"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
