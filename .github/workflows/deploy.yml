@@ -179,9 +179,31 @@ jobs:
             fi
           fi
 
-          pid=$(jq -r --arg n "$NEON_PROJECT_NAME" '.projects[] | select(.name==$n) | .id' /tmp/projects.json | head -1)
+          total=$(jq '(.projects // []) | length' /tmp/projects.json)
+          names=$(jq -r '[(.projects // [])[].name] | join(", ")' /tmp/projects.json | cut -c1-300)
+          echo "::notice::Neon organization ${org:-personal} holds $total project(s): ${names:-none}"
 
-          if [ -z "$pid" ]; then
+          # Given a project id, work out the connection string for its default
+          # branch and first database.
+          conn_for() {
+            local id="$1" db br role
+            db=$(curl -sS "${auth[@]}" "$API/projects/$id/databases" | jq -r '.databases[0].name // empty')
+            br=$(curl -sS "${auth[@]}" "$API/projects/$id/branches" \
+                 | jq -r '([.branches[] | select(.default == true) | .id] + [.branches[0].id])[0] // empty')
+            role=$(curl -sS "${auth[@]}" "$API/projects/$id/branches/$br/roles" | jq -r '.roles[0].name // empty')
+            if [ -z "$db" ] || [ -z "$br" ] || [ -z "$role" ]; then
+              echo "::error::Neon project $id has no usable database, branch or role (database='$db' branch='$br' role='$role')."
+              return 1
+            fi
+            curl -sS "${auth[@]}" "$API/projects/$id/connection_uri?database_name=$db&role_name=$role" | jq -r '.uri // empty'
+          }
+
+          pid=$(jq -r --arg n "$NEON_PROJECT_NAME" '[(.projects // [])[] | select(.name == $n) | .id][0] // empty' /tmp/projects.json)
+          uri=""
+
+          if [ -n "$pid" ]; then
+            echo "Reusing the Neon project named $NEON_PROJECT_NAME ($pid)"
+          else
             # An unavailable region is rejected by the create call, so confirm
             # the configured one is offered and otherwise fall back.
             if [ "$(curl -sS -o /tmp/regions.json -w '%{http_code}' "${auth[@]}" "$API/regions")" = "200" ]; then
@@ -196,24 +218,30 @@ jobs:
                      '{project: ({name:$n, region_id:$r} + (if $o == "" then {} else {org_id:$o} end))}')
             code=$(curl -sS -o /tmp/create.json -w '%{http_code}' -X POST "${auth[@]}" \
                      -H 'Content-Type: application/json' -d "$body" "$API/projects")
-            if [ "$code" != "201" ] && [ "$code" != "200" ]; then
-              echo "::error::Could not create the Neon project: HTTP $code, region $NEON_REGION, org '\''${org:-none}'\'', API said: $(why /tmp/create.json)"
-              exit 1
+
+            if [ "$code" = "201" ] || [ "$code" = "200" ]; then
+              pid=$(jq -r '.project.id' /tmp/create.json)
+              uri=$(jq -r '.connection_uris[0].connection_uri // empty' /tmp/create.json)
+              echo "Created project $pid"
+            else
+              # Organizations created through the Vercel or Netlify
+              # marketplace forbid project creation over the API, so fall back
+              # to a project that already exists. The setup script only adds
+              # its own tables and upserts into them, so sharing a database is
+              # safe.
+              msg=$(why /tmp/create.json)
+              echo "::warning::Neon would not create a project (HTTP $code): $msg"
+              pid=$(jq -r '[(.projects // [])[].id][0] // empty' /tmp/projects.json)
+              if [ -z "$pid" ]; then
+                echo "::error::Neon refused to create a project (HTTP $code: $msg) and this organization has none to reuse. Create one database at https://console.neon.tech and run this workflow again; it will pick the database up on its own."
+                exit 1
+              fi
+              reused=$(jq -r --arg i "$pid" '[(.projects // [])[] | select(.id == $i) | .name][0] // "unnamed"' /tmp/projects.json)
+              echo "::notice::Using the existing Neon project '$reused' ($pid) instead of creating one."
             fi
-            pid=$(jq -r '.project.id' /tmp/create.json)
-            uri=$(jq -r '.connection_uris[0].connection_uri' /tmp/create.json)
-            echo "Created project $pid"
-          else
-            echo "Reusing existing Neon project $pid"
-            db=$(curl -sS "${auth[@]}" "$API/projects/$pid/databases" | jq -r '.databases[0].name')
-            role=$(curl -sS "${auth[@]}" "$API/projects/$pid/branches" \
-                   | jq -r '.branches[] | select(.default==true) | .id' | head -1)
-            role_name=$(curl -sS "${auth[@]}" "$API/projects/$pid/branches/$role/roles" \
-                        | jq -r '.roles[0].name')
-            uri=$(curl -sS "${auth[@]}" \
-                  "$API/projects/$pid/connection_uri?database_name=$db&role_name=$role_name" \
-                  | jq -r '.uri')
           fi
+
+          [ -z "$uri" ] && uri=$(conn_for "$pid")
 
           if [ -z "$uri" ] || [ "$uri" = "null" ]; then
             echo "::error::Neon did not return a connection string"
