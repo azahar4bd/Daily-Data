@@ -144,6 +144,15 @@ jobs:
           API=https://console.neon.tech/api/v2
           auth=(-H "Authorization: Bearer $NEON_API_KEY" -H "Accept: application/json")
 
+          # Job logs are not always readable, so the API's own wording has to
+          # travel in the annotation itself rather than only in the log.
+          why() {
+            local m
+            m=$(jq -r '[.message, .error, (.errors? | tostring)] | map(select(. != null and . != "null" and . != "")) | first // empty' "$1" 2>/dev/null | tr -d '\n' | cut -c1-400)
+            if [ -n "$m" ]; then printf '%s' "$m"
+            else printf '%s' "$(tr -d '\n' < "$1" | cut -c1-300)"; fi
+          }
+
           # Neon requires org_id on /projects for personal API keys; an
           # organization key infers it. Try without first, and on rejection
           # look the organization up and retry.
@@ -153,8 +162,7 @@ jobs:
             echo "Listing projects without org_id returned HTTP $code: $(jq -r '.message // empty' /tmp/projects.json 2>/dev/null)"
             ocode=$(curl -sS -o /tmp/orgs.json -w '%{http_code}' "${auth[@]}" "$API/users/me/organizations")
             if [ "$ocode" != "200" ]; then
-              echo "::error::Neon rejected the API key (HTTP $code listing projects, HTTP $ocode listing organizations). Create a new personal API key at https://console.neon.tech/app/settings/api-keys and update the secret."
-              jq -r '.message // .' /tmp/orgs.json 2>/dev/null || cat /tmp/orgs.json
+              echo "::error::Neon rejected the API key: HTTP $code listing projects, HTTP $ocode listing organizations, which said: $(why /tmp/orgs.json). Create a new personal API key at https://console.neon.tech/app/settings/api-keys and update the secret."
               exit 1
             fi
             org=$(jq -r 'if type == "array" then (.[0].id // empty) else ((.organizations // []) | .[0].id // empty) end' /tmp/orgs.json 2>/dev/null || true)
@@ -166,8 +174,7 @@ jobs:
             echo "Using Neon organization $org"
             code=$(curl -sS -o /tmp/projects.json -w '%{http_code}' "${auth[@]}" "$API/projects?org_id=$org&limit=400")
             if [ "$code" != "200" ]; then
-              echo "::error::Neon API returned HTTP $code when listing projects for organization $org."
-              jq -r '.message // .' /tmp/projects.json 2>/dev/null || cat /tmp/projects.json
+              echo "::error::Neon returned HTTP $code listing projects for organization $org: $(why /tmp/projects.json)"
               exit 1
             fi
           fi
@@ -175,14 +182,22 @@ jobs:
           pid=$(jq -r --arg n "$NEON_PROJECT_NAME" '.projects[] | select(.name==$n) | .id' /tmp/projects.json | head -1)
 
           if [ -z "$pid" ]; then
+            # An unavailable region is rejected by the create call, so confirm
+            # the configured one is offered and otherwise fall back.
+            if [ "$(curl -sS -o /tmp/regions.json -w '%{http_code}' "${auth[@]}" "$API/regions")" = "200" ]; then
+              if ! jq -e --arg r "$NEON_REGION" '[.regions[].region_id] | index($r)' /tmp/regions.json >/dev/null 2>&1; then
+                alt=$(jq -r '.regions[0].region_id // empty' /tmp/regions.json)
+                echo "::warning::Region $NEON_REGION is not offered for this account; using $alt instead. Available: $(jq -r '[.regions[].region_id] | join(", ")' /tmp/regions.json | cut -c1-200)"
+                [ -n "$alt" ] && NEON_REGION="$alt"
+              fi
+            fi
             echo "Creating Neon project '$NEON_PROJECT_NAME' in $NEON_REGION ..."
             body=$(jq -n --arg n "$NEON_PROJECT_NAME" --arg r "$NEON_REGION" --arg o "$org" \
                      '{project: ({name:$n, region_id:$r} + (if $o == "" then {} else {org_id:$o} end))}')
             code=$(curl -sS -o /tmp/create.json -w '%{http_code}' -X POST "${auth[@]}" \
                      -H 'Content-Type: application/json' -d "$body" "$API/projects")
             if [ "$code" != "201" ] && [ "$code" != "200" ]; then
-              echo "::error::Could not create the Neon project (HTTP $code)"
-              jq -r '.message // .' /tmp/create.json 2>/dev/null || cat /tmp/create.json
+              echo "::error::Could not create the Neon project: HTTP $code, region $NEON_REGION, org '\''${org:-none}'\'', API said: $(why /tmp/create.json)"
               exit 1
             fi
             pid=$(jq -r '.project.id' /tmp/create.json)
