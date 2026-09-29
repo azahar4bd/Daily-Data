@@ -1,6 +1,15 @@
 [build]
   publish = "."
   functions = "netlify/functions"
+  command = "echo static-build"
+
+# Shown by the "Deploy to Netlify" button so the database URL is asked for
+# during setup instead of being forgotten afterwards.
+[template.environment]
+  DATABASE_URL = "Neon connection string, e.g. postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require"
+
+[functions]
+  node_bundler = "esbuild"
 
 [dev]
   framework = "#static"
@@ -10,3 +19,14 @@
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
+
+# never let the browser cache the JSON fallback or the app shell
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"

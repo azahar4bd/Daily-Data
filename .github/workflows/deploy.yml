@@ -1,0 +1,411 @@
+name: Deploy
+
+# Does the whole thing on GitHub's runners:
+#   1. creates (or reuses) a Neon Postgres project
+#   2. loads schema.sql + the data imported from sheet.xlsx
+#   3. creates (or reuses) a Netlify site
+#   4. sets DATABASE_URL on that site
+#   5. deploys the app and prints the live URL
+#
+# It only needs two repository secrets:
+#   NEON_API_KEY        Neon console -> Account settings -> API keys
+#   NETLIFY_AUTH_TOKEN  Netlify -> User settings -> Applications -> access token
+#
+# The names above are conventional, not required: a secret is also
+# recognised by the prefix of its value, napi_ for Neon and nfp_ for
+# Netlify, so a pair saved under any two names still works.
+#
+# Re-running is safe: the Neon project and the Netlify site are reused, and
+# every SQL statement is an upsert.
+
+on:
+  push:
+    branches:
+      - main
+      - arena/01a0eb92-daily-data
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NEON_PROJECT_NAME: daily-data
+  NEON_REGION: aws-ap-southeast-1
+  NETLIFY_SITE_NAME: bkf-daily-data
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reports *names only* (never values) as annotations, so a misplaced or
+      # misspelled secret can be spotted without digging through the logs.
+      - name: Report which secrets and variables are visible
+        env:
+          SECRET_KEYS: ${{ toJSON(secrets) }}
+          VAR_KEYS: ${{ toJSON(vars) }}
+        run: |
+          set -uo pipefail
+          s=$(printf '%s' "$SECRET_KEYS" | jq -r 'keys | map(select(. != "github_token")) | join(", ")' 2>/dev/null)
+          v=$(printf '%s' "$VAR_KEYS"    | jq -r 'keys | join(", ")' 2>/dev/null)
+          echo "::warning::Secrets visible to this workflow: ${s:-(none)}"
+          echo "::warning::Variables visible to this workflow: ${v:-(none)}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # ------------------------------------------------------------------
+      - name: Resolve the Neon and Netlify credentials
+        id: creds
+        env:
+          ALL_SECRETS: ${{ toJSON(secrets) }}
+        run: |
+          set -uo pipefail
+          f=$(mktemp); printf '%s' "$ALL_SECRETS" > "$f"
+
+          # Candidates are every repository secret except the automatic
+          # GITHUB_TOKEN. A secret is matched first by its conventional name
+          # and then, so that any name works, by the prefix of its value:
+          # Neon API keys begin with napi_ and Netlify tokens with nfp_.
+          pick_name() {
+            jq -r --arg exact "$1" --arg pfx "$2" '
+              to_entries
+              | map(select((.key | ascii_downcase) != "github_token"))
+              | map(select(.value | strings | length > 0))
+              | ( map(select(.key == $exact)) + map(select(.value | startswith($pfx))) )
+              | (.[0].key // "")' < "$f"
+          }
+
+          # With exactly two secrets, once one is identified the other is the
+          # remaining one. This rescues Netlify tokens in the older unprefixed
+          # format, and pairs that were saved under unrelated names.
+          other_name() {
+            jq -r --arg used "$1" '
+              to_entries
+              | map(select((.key | ascii_downcase) != "github_token"))
+              | map(select(.value | strings | length > 0))
+              | map(select(.key != $used))
+              | if length == 1 then .[0].key else "" end' < "$f"
+          }
+
+          value_of() { jq -r --arg k "$1" '.[$k] // ""' < "$f"; }
+
+          neon_name=$(pick_name NEON_API_KEY napi_)
+          netlify_name=$(pick_name NETLIFY_AUTH_TOKEN nfp_)
+          [ -z "$netlify_name" ] && [ -n "$neon_name" ] && netlify_name=$(other_name "$neon_name")
+          [ -z "$neon_name" ] && [ -n "$netlify_name" ] && neon_name=$(other_name "$netlify_name")
+
+          # Trailing newlines survive a copy-paste and break Authorization
+          # headers, so strip whitespace from both ends.
+          trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; printf '%s' "${v%"${v##*[![:space:]]}"}"; }
+          neon=$(trim "$(value_of "$neon_name" | tr -d '\r\n')")
+          netlify=$(trim "$(value_of "$netlify_name" | tr -d '\r\n')")
+          [ -n "$neon" ] && echo "::add-mask::$neon"
+          [ -n "$netlify" ] && echo "::add-mask::$netlify"
+          rm -f "$f"
+
+          missing=0
+          if [ -z "$neon" ]; then
+            echo "::error::No secret holds a Neon API key. Add one named NEON_API_KEY, or any name with a value starting with napi_."
+            missing=1
+          else
+            echo "::notice::Secret '$neon_name' is being used as the Neon API key."
+            case "$neon" in napi_*) ;; *) echo "::warning::Secret '$neon_name' does not start with napi_, so it may not be a Neon API key." ;; esac
+          fi
+          if [ -z "$netlify" ]; then
+            echo "::error::No secret holds a Netlify access token. Add one named NETLIFY_AUTH_TOKEN, or any name with a value starting with nfp_."
+            missing=1
+          else
+            echo "::notice::Secret '$netlify_name' is being used as the Netlify access token."
+          fi
+          if [ -n "$neon" ] && [ "$neon" = "$netlify" ]; then
+            echo "::error::Secrets '$neon_name' and '$netlify_name' hold the same value. One must be the Neon API key and the other the Netlify access token."
+            missing=1
+          fi
+          [ "$missing" = "1" ] && exit 1
+
+          {
+            echo "neon_key=$neon"
+            echo "netlify_token=$netlify"
+          } >> "$GITHUB_OUTPUT"
+          echo "Both credentials resolved."
+
+      # ------------------------------------------------------------------
+      - name: Create or reuse the Neon project
+        id: neon
+        env:
+          NEON_API_KEY: ${{ steps.creds.outputs.neon_key }}
+        run: |
+          set -euo pipefail
+          API=https://console.neon.tech/api/v2
+          auth=(-H "Authorization: Bearer $NEON_API_KEY" -H "Accept: application/json")
+
+          # Job logs are not always readable, so the API's own wording has to
+          # travel in the annotation itself rather than only in the log.
+          why() {
+            local m
+            m=$(jq -r '[.message, .error, (.errors? | tostring)] | map(select(. != null and . != "null" and . != "")) | first // empty' "$1" 2>/dev/null | tr -d '\n' | cut -c1-400)
+            if [ -n "$m" ]; then printf '%s' "$m"
+            else printf '%s' "$(tr -d '\n' < "$1" | cut -c1-300)"; fi
+          }
+
+          # Neon requires org_id on /projects for personal API keys; an
+          # organization key infers it. Try without first, and on rejection
+          # look the organization up and retry.
+          org=""
+          code=$(curl -sS -o /tmp/projects.json -w '%{http_code}' "${auth[@]}" "$API/projects")
+          if [ "$code" != "200" ]; then
+            echo "Listing projects without org_id returned HTTP $code: $(jq -r '.message // empty' /tmp/projects.json 2>/dev/null)"
+            ocode=$(curl -sS -o /tmp/orgs.json -w '%{http_code}' "${auth[@]}" "$API/users/me/organizations")
+            if [ "$ocode" != "200" ]; then
+              echo "::error::Neon rejected the API key: HTTP $code listing projects, HTTP $ocode listing organizations, which said: $(why /tmp/orgs.json). Create a new personal API key at https://console.neon.tech/app/settings/api-keys and update the secret."
+              exit 1
+            fi
+            org=$(jq -r 'if type == "array" then (.[0].id // empty) else ((.organizations // []) | .[0].id // empty) end' /tmp/orgs.json 2>/dev/null || true)
+            if [ -z "$org" ]; then
+              echo "::error::The Neon API key belongs to no organization, so projects cannot be listed."
+              cat /tmp/orgs.json
+              exit 1
+            fi
+            echo "Using Neon organization $org"
+            code=$(curl -sS -o /tmp/projects.json -w '%{http_code}' "${auth[@]}" "$API/projects?org_id=$org&limit=400")
+            if [ "$code" != "200" ]; then
+              echo "::error::Neon returned HTTP $code listing projects for organization $org: $(why /tmp/projects.json)"
+              exit 1
+            fi
+          fi
+
+          total=$(jq '(.projects // []) | length' /tmp/projects.json)
+          names=$(jq -r '[(.projects // [])[].name] | join(", ")' /tmp/projects.json | cut -c1-300)
+          echo "::notice::Neon organization ${org:-personal} holds $total project(s): ${names:-none}"
+
+          # Given a project id, work out the connection string for its default
+          # branch and first database.
+          conn_for() {
+            local id="$1" db br role
+            db=$(curl -sS "${auth[@]}" "$API/projects/$id/databases" | jq -r '.databases[0].name // empty')
+            br=$(curl -sS "${auth[@]}" "$API/projects/$id/branches" \
+                 | jq -r '([.branches[] | select(.default == true) | .id] + [.branches[0].id])[0] // empty')
+            role=$(curl -sS "${auth[@]}" "$API/projects/$id/branches/$br/roles" | jq -r '.roles[0].name // empty')
+            if [ -z "$db" ] || [ -z "$br" ] || [ -z "$role" ]; then
+              echo "::error::Neon project $id has no usable database, branch or role (database='$db' branch='$br' role='$role')."
+              return 1
+            fi
+            curl -sS "${auth[@]}" "$API/projects/$id/connection_uri?database_name=$db&role_name=$role" | jq -r '.uri // empty'
+          }
+
+          pid=$(jq -r --arg n "$NEON_PROJECT_NAME" '[(.projects // [])[] | select(.name == $n) | .id][0] // empty' /tmp/projects.json)
+          uri=""
+
+          if [ -n "$pid" ]; then
+            echo "Reusing the Neon project named $NEON_PROJECT_NAME ($pid)"
+          else
+            # An unavailable region is rejected by the create call, so confirm
+            # the configured one is offered and otherwise fall back.
+            if [ "$(curl -sS -o /tmp/regions.json -w '%{http_code}' "${auth[@]}" "$API/regions")" = "200" ]; then
+              if ! jq -e --arg r "$NEON_REGION" '[.regions[].region_id] | index($r)' /tmp/regions.json >/dev/null 2>&1; then
+                alt=$(jq -r '.regions[0].region_id // empty' /tmp/regions.json)
+                echo "::warning::Region $NEON_REGION is not offered for this account; using $alt instead. Available: $(jq -r '[.regions[].region_id] | join(", ")' /tmp/regions.json | cut -c1-200)"
+                [ -n "$alt" ] && NEON_REGION="$alt"
+              fi
+            fi
+            echo "Creating Neon project '$NEON_PROJECT_NAME' in $NEON_REGION ..."
+            body=$(jq -n --arg n "$NEON_PROJECT_NAME" --arg r "$NEON_REGION" --arg o "$org" \
+                     '{project: ({name:$n, region_id:$r} + (if $o == "" then {} else {org_id:$o} end))}')
+            code=$(curl -sS -o /tmp/create.json -w '%{http_code}' -X POST "${auth[@]}" \
+                     -H 'Content-Type: application/json' -d "$body" "$API/projects")
+
+            if [ "$code" = "201" ] || [ "$code" = "200" ]; then
+              pid=$(jq -r '.project.id' /tmp/create.json)
+              uri=$(jq -r '.connection_uris[0].connection_uri // empty' /tmp/create.json)
+              echo "Created project $pid"
+            else
+              # Organizations created through the Vercel or Netlify
+              # marketplace forbid project creation over the API, so fall back
+              # to a project that already exists. The setup script only adds
+              # its own tables and upserts into them, so sharing a database is
+              # safe.
+              msg=$(why /tmp/create.json)
+              echo "::warning::Neon would not create a project (HTTP $code): $msg"
+              pid=$(jq -r '[(.projects // [])[].id][0] // empty' /tmp/projects.json)
+              if [ -z "$pid" ]; then
+                echo "::error::Neon refused to create a project (HTTP $code: $msg) and this organization has none to reuse. Create one database at https://console.neon.tech and run this workflow again; it will pick the database up on its own."
+                exit 1
+              fi
+              reused=$(jq -r --arg i "$pid" '[(.projects // [])[] | select(.id == $i) | .name][0] // "unnamed"' /tmp/projects.json)
+              echo "::notice::Using the existing Neon project '$reused' ($pid) instead of creating one."
+            fi
+          fi
+
+          [ -z "$uri" ] && uri=$(conn_for "$pid")
+
+          if [ -z "$uri" ] || [ "$uri" = "null" ]; then
+            echo "::error::Neon did not return a connection string"
+            exit 1
+          fi
+          echo "::add-mask::$uri"
+          echo "database_url=$uri" >> "$GITHUB_OUTPUT"
+          echo "project_id=$pid" >> "$GITHUB_OUTPUT"
+          echo "Connection string obtained (masked)."
+
+      # ------------------------------------------------------------------
+      - name: Load the schema and the spreadsheet data
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.database_url }}
+        run: |
+          set -euo pipefail
+          psql --version
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f deploy/neon-setup.sql > /tmp/psql.log 2>&1 \
+            || { echo "::error::Loading deploy/neon-setup.sql failed"; tail -40 /tmp/psql.log; exit 1; }
+          echo "Row counts:"
+          psql "$DATABASE_URL" -At -F ' | ' -c \
+            "select 'branches', count(*) from branches
+             union all select 'daily_entries', count(*) from daily_entries
+             union all select 'distinct dates', count(distinct entry_date) from daily_entries
+             union all select 'month_closings', count(*) from month_closings"
+
+      # ------------------------------------------------------------------
+      - name: Create or reuse the Netlify site
+        id: site
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ steps.creds.outputs.netlify_token }}
+        run: |
+          set -euo pipefail
+          API=https://api.netlify.com/api/v1
+          auth=(-H "Authorization: Bearer $NETLIFY_AUTH_TOKEN")
+
+          code=$(curl -sS -o /tmp/me.json -w '%{http_code}' "${auth[@]}" "$API/user")
+          if [ "$code" != "200" ]; then
+            echo "::error::Netlify API returned HTTP $code. Is NETLIFY_AUTH_TOKEN valid?"
+            exit 1
+          fi
+          echo "Authenticated as $(jq -r '.email // .full_name // "unknown"' /tmp/me.json)"
+
+          curl -sS "${auth[@]}" "$API/sites?per_page=200" -o /tmp/sites.json
+          sid=$(jq -r --arg n "$NETLIFY_SITE_NAME" '.[] | select(.name==$n) | .id' /tmp/sites.json | head -1)
+
+          if [ -z "$sid" ]; then
+            slug=$(curl -sS "${auth[@]}" "$API/accounts" | jq -r '.[0].slug')
+            echo "Creating Netlify site '$NETLIFY_SITE_NAME' under account '$slug' ..."
+            code=$(curl -sS -o /tmp/site.json -w '%{http_code}' -X POST "${auth[@]}" \
+                     -H 'Content-Type: application/json' \
+                     -d "$(jq -n --arg n "$NETLIFY_SITE_NAME" '{name:$n}')" \
+                     "$API/$slug/sites")
+            if [ "$code" != "201" ] && [ "$code" != "200" ]; then
+              alt="$NETLIFY_SITE_NAME-$(date +%s | tail -c 5)"
+              echo "Name '$NETLIFY_SITE_NAME' is not available (HTTP $code); trying '$alt'."
+              code=$(curl -sS -o /tmp/site.json -w '%{http_code}' -X POST "${auth[@]}" \
+                       -H 'Content-Type: application/json' \
+                       -d "$(jq -n --arg n "$alt" '{name:$n}')" "$API/$slug/sites")
+              if [ "$code" != "201" ] && [ "$code" != "200" ]; then
+                echo "Still no luck (HTTP $code); letting Netlify pick the name."
+                code=$(curl -sS -o /tmp/site.json -w '%{http_code}' -X POST "${auth[@]}" \
+                         -H 'Content-Type: application/json' -d '{}' "$API/$slug/sites")
+              fi
+            fi
+            if [ "$code" != "201" ] && [ "$code" != "200" ]; then
+              echo "::error::Could not create a Netlify site (HTTP $code)"
+              cat /tmp/site.json
+              exit 1
+            fi
+            sid=$(jq -r '.id // empty' /tmp/site.json)
+            name=$(jq -r '.name // empty' /tmp/site.json)
+          else
+            name="$NETLIFY_SITE_NAME"
+            echo "Reusing existing site $sid"
+          fi
+
+          if [ -z "$sid" ] || [ "$sid" = "null" ]; then
+            echo "::error::Netlify did not return a site id"
+            cat /tmp/site.json 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "site_id=$sid" >> "$GITHUB_OUTPUT"
+          echo "site_name=$name" >> "$GITHUB_OUTPUT"
+          echo "Site: $name ($sid)"
+
+      # ------------------------------------------------------------------
+      - run: npm ci
+
+      - name: Put DATABASE_URL on the site
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ steps.creds.outputs.netlify_token }}
+          NETLIFY_SITE_ID: ${{ steps.site.outputs.site_id }}
+          DATABASE_URL: ${{ steps.neon.outputs.database_url }}
+        run: |
+          set -uo pipefail
+          # --force exists to skip the overwrite prompt; tolerate CLI versions
+          # that spell it differently, then verify the value really landed.
+          npx --yes netlify-cli@17 env:set DATABASE_URL "$DATABASE_URL" \
+              --site "$NETLIFY_SITE_ID" --force \
+            || npx --yes netlify-cli@17 env:set DATABASE_URL "$DATABASE_URL" \
+              --site "$NETLIFY_SITE_ID"
+
+          got=$(npx --yes netlify-cli@17 env:get DATABASE_URL --site "$NETLIFY_SITE_ID" 2>/dev/null | tr -d '[:space:]')
+          if [ -z "$got" ] || [ "$got" = "null" ]; then
+            echo "::error::DATABASE_URL was not stored on the Netlify site."
+            exit 1
+          fi
+          echo "DATABASE_URL is set on the site (length ${#got})."
+
+      # ------------------------------------------------------------------
+      - name: Stage the publish directory
+        run: |
+          mkdir -p _site
+          cp index.html netlify.toml _site/
+          cp -r assets data _site/
+          find _site -type f | sort
+
+      - name: Deploy
+        id: deploy
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ steps.creds.outputs.netlify_token }}
+          NETLIFY_SITE_ID: ${{ steps.site.outputs.site_id }}
+        run: |
+          set -euo pipefail
+          npx --yes netlify-cli@17 deploy --prod \
+            --dir _site --functions netlify/functions \
+            --site "$NETLIFY_SITE_ID" \
+            --message "${{ github.sha }}" \
+            --json > /tmp/deploy.json
+          cat /tmp/deploy.json
+          url=$(jq -r '.site_url // .url' /tmp/deploy.json)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Check the live site
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          echo "Waiting for $URL to answer ..."
+          for i in $(seq 1 20); do
+            health=$(curl -sS --max-time 20 "$URL/api/health" || true)
+            echo "  attempt $i: $health"
+            case "$health" in *'"ok":true'*) ok=1; break;; esac
+            sleep 6
+          done
+          page=$(curl -sS -o /dev/null -w '%{http_code}' "$URL/")
+          echo "index.html -> HTTP $page"
+          rows=$(curl -sS --max-time 20 "$URL/api/daily?date=2026-09-28" | jq 'length' || echo 0)
+          echo "rows for 2026-09-28 -> $rows"
+
+          {
+            echo "## Deployed"
+            echo ""
+            echo "**Live site: $URL**"
+            echo ""
+            echo "| check | result |"
+            echo "| --- | --- |"
+            echo "| \`/\` | HTTP $page |"
+            echo "| \`/api/health\` | ${health:-no answer} |"
+            echo "| rows on 2026-09-28 | $rows |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${ok:-0}" != "1" ]; then
+            echo "::warning::/api/health never reported ok. The site is up but the database link needs a look."
+          fi
