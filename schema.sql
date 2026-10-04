@@ -26,6 +26,7 @@ create table if not exists daily_entries (
   actual_loanee            integer,
   savings                  numeric,
   kisti_count              integer,
+  today_collection         numeric,
   today_disbursement       numeric,
   grant_total_disbursement numeric,
   loan_outstanding         numeric,
@@ -40,6 +41,9 @@ create table if not exists daily_entries (
 );
 
 alter table daily_entries add column if not exists kisti_count integer;
+alter table daily_entries add column if not exists today_collection numeric;
+alter table daily_entries add column if not exists kisti_total numeric;
+alter table daily_entries add column if not exists kisti_cumulative boolean default false;
 alter table daily_entries add column if not exists updated_at timestamptz not null default now();
 
 create index if not exists daily_entries_date_idx   on daily_entries (entry_date desc);
@@ -66,3 +70,23 @@ insert into branches (name, bn_name) values
   ('Noldi',    'নলদী'),
   ('Narail',   'নড়াইল সদর')
 on conflict (name) do update set bn_name = excluded.bn_name;
+
+
+-- টেবিলের হেডার লেখা — অ্যাডমিন বদলাতে পারে
+create table if not exists ui_labels (
+  key        text primary key,
+  label      text not null,
+  updated_at timestamptz default now()
+);
+
+
+-- সাইট ভিজিটের হিসাব
+create table if not exists visitors (
+  vid        text primary key,
+  first_seen timestamptz default now(),
+  last_seen  timestamptz default now(),
+  hits       integer default 1,
+  person     text,
+  branch     text
+);
+create index if not exists visitors_last_seen_idx on visitors (last_seen desc);

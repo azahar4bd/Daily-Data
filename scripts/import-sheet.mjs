@@ -119,6 +119,8 @@ const DAILY_COLS = {
   actual_member: 6,
   actual_loanee: 9,
   savings: 12,
+  today_collection: 17,
+  kisti_total: 19,
   kisti_count: 20,
   today_disbursement: 23,
   grant_total_disbursement: 25,

@@ -1,245 +1,504 @@
 <!doctype html>
-<html lang="bn">
+<html lang="bn" translate="no" class="notranslate">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>দৈনিক তথ্য সংগ্রহ</title>
+  <meta name="google" content="notranslate" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>বন্ধু কল্যাণ ফাউন্ডেশন — ডেটা এন্ট্রি ও রিপোর্ট</title>
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="stylesheet" href="assets/fonts.css" />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 
 <body>
 <div class="app">
 
-  <!-- ======================= sidebar ======================= -->
-  <aside class="side">
-    <div class="brand">Data<span>Flow</span></div>
-    <div class="nav active" data-page="dashboard">▦ ড্যাশবোর্ড</div>
-    <div class="nav" data-page="dailyEntry">✎ Daily Entry</div>
-    <div class="nav" data-page="closingEntry">✎ Month Closing Entry</div>
-    <div class="nav" data-page="compare">⇄ Compare Sep-26</div>
-    <div class="nav" data-page="closing">▤ Month Closing</div>
-    <small>ডেটা সোর্স</small>
-    <div class="nav static">Neon Postgres / seed.json</div>
-  </aside>
-
   <main class="main">
-    <button class="menu-toggle" id="menuToggle">☰ মেনু</button>
 
-    <!-- ======================= dashboard ======================= -->
-    <div id="dashboardPage">
+    <!-- সবাই দেখতে পায় — কতজন এখন অনলাইনে, ডেটা লাইভ কিনা -->
+    <div class="live-row">
+      <button type="button" class="live-chip" id="liveChip" title="কারা অনলাইনে — চাপ দিয়ে নিজের নাম বদলান">
+        <i></i><span id="liveOnline">—</span> জন অনলাইনে
+      </button>
+      <span class="live-names" id="liveNames"></span>
+    </div>
+
+    <!-- অ্যাডমিন লগইন করলেই দেখা যায় — ভিজিটের হিসাব -->
+    <div class="admin-stats" id="adminStats" hidden>
+      <div class="stat live"><b id="stOnline">—</b><span>এখন অনলাইনে</span></div>
+      <div class="stat"><b id="stToday">—</b><span>আজকের ভিজিটর</span></div>
+      <div class="stat"><b id="stDay">—</b><span>২৪ ঘণ্টায়</span></div>
+      <div class="stat"><b id="stTotal">—</b><span>মোট ভিজিটর</span></div>
+      <div class="stat"><b id="stHits">—</b><span>মোট ভিজিট</span></div>
+      <button class="btn ghost" id="stRefresh" type="button">↻</button>
+      <details class="stat-recent">
+        <summary>কে কখন এসেছে</summary>
+        <ul id="stRecent"></ul>
+      </details>
+      <details class="stat-recent history">
+        <summary>🗂 মুছে ফেলা / বদলানো তথ্য — ফেরানো যাবে</summary>
+        <ul id="stHistory"></ul>
+      </details>
+    </div>
+
+    <!-- ডান থেকে বামে চলমান নোটিশ — অ্যাডমিন বদলাতে পারে -->
+    <div class="notice-bar" id="noticeBar" title="অ্যাডমিন: চাপ দিয়ে নোটিশ বদলান">
+      <span class="notice-tag">নোটিশ</span>
+      <div class="notice-track"><span id="noticeText">—</span></div>
+    </div>
+
+    <!-- =================================================================
+         PAGE 1 — এন্ট্রি (দুইটি ফর্ম)
+         ================================================================= -->
+    <div id="entryPage">
       <div class="top">
-        <div class="title">
-          <h1>দৈনিক তথ্য সংগ্রহ</h1>
-          <p>শাখাভিত্তিক কার্যক্রমের সারসংক্ষেপ ও পারফরম্যান্স</p>
+        <div class="title with-logo">
+          <i class="bkf-logo lg"></i>
+          <div>
+            <h1>এন্ট্রি</h1>
+            <p>বন্ধু কল্যাণ ফাউন্ডেশন — নড়াইল এরিয়া</p>
+          </div>
         </div>
         <div class="actions">
+          <span class="badge info" id="entryHint">ফর্ম সব সময় ফাঁকা খোলে — আগের তথ্য আনতে Edit চাপুন</span>
           <span class="badge muted" id="sourceBadge">● লোড হচ্ছে…</span>
-          <button class="btn" id="exportBtn">↥ এক্সপোর্ট</button>
-          <button class="btn primary" id="refreshBtn">↻ রিফ্রেশ</button>
         </div>
       </div>
 
-      <div class="filters">
-        <label class="field">তারিখ<select id="date"></select></label>
-        <label class="field">শাখা
-          <select id="branch"><option value="all">সব শাখা</option></select>
-        </label>
-        <button class="btn primary" id="apply">ফিল্টার প্রয়োগ</button>
+      <!-- ফর্ম বাছাইয়ের দুই বাটন — ডিফল্ট ডেইলি -->
+      <div class="form-switch">
+        <button type="button" class="switch-btn active" data-form="daily">Daily</button>
+        <button type="button" class="switch-btn" data-form="closing">Month Closing Data</button>
       </div>
 
-      <div class="cards" id="metrics"></div>
-
-      <section class="card section">
+      <!-- ---------- form 1 : daily ---------- -->
+      <section class="card section entry-page" id="dailyFormCard">
         <div class="section-head">
-          <h2>শাখাভিত্তিক পারফরম্যান্স</h2>
-          <span id="updated" class="badge info">—</span>
+          <h2>ডেইলি এন্ট্রি ফর্ম</h2>
+          <span class="badge muted" id="dailyLoadBadge">নতুন এন্ট্রি</span>
         </div>
+        <form id="dailyForm" autocomplete="off">
+          <div class="entry-top">
+            <label class="field required"><span>তারিখ</span><input type="date" id="deDate" required /></label>
+            <label class="field required wide"><span>শাখা</span><select id="deBranch" required></select></label>
+          </div>
+
+        <table class="entry-table">
+          <tbody>
+            <tr class="hrow"><th>Actual Member</th><th>Actual Lonee</th><th>Savings</th><th>Today Disbursement</th><th>Monthly Kisti Aday (সংখ্যা)</th></tr>
+            <tr class="irow"><td><input type="number" id="deMember" step="1" inputmode="numeric" /></td><td><input type="number" id="deLoanee" step="1" inputmode="numeric" /></td><td><input type="number" id="deSavings" step="0.01" inputmode="decimal" /></td><td><input type="number" id="deDisbursement" step="0.01" inputmode="decimal" /></td><td><input type="number" id="deKisti" step="1" inputmode="numeric" /></td></tr>
+          </tbody>
+        </table>
+        <table class="entry-table">
+          <tbody>
+            <tr class="hrow"><th>Loan Outstanding</th><th>Overdue Outstanding</th><th>Recovary Rate (%)</th><th>Cash in Hand</th><th>Bank</th></tr>
+            <tr class="irow"><td><input type="number" id="deLoanOut" step="0.01" inputmode="decimal" /></td><td><input type="number" id="deOverdue" step="0.01" inputmode="decimal" /></td><td><input type="number" id="deRecovery" step="0.01" inputmode="decimal" /></td><td><input type="number" id="deCash" step="0.01" inputmode="decimal" /></td><td><input type="number" id="deBank" step="0.01" inputmode="decimal" /></td></tr>
+          </tbody>
+        </table>
+
+          <div class="form-actions">
+            <button class="btn primary" id="deSave" type="submit">Save</button>
+            <button class="btn ghost" id="deReset" type="button">Reset</button>
+            <button class="btn outline" id="deEdit" type="button">Edit</button>
+            <span class="form-note">তারিখ ও শাখা বেছে Edit চাপলে আগের তথ্য আসবে</span>
+          </div>
+        </form>
+      </section>
+
+      <!-- ---------- form 2 : month closing ---------- -->
+      <section class="card section entry-page" id="closingFormCard" style="display:none">
+        <div class="section-head">
+          <h2>Month Closing এন্ট্রি ফর্ম</h2>
+          <span class="badge muted" id="mcLoadBadge">নতুন এন্ট্রি</span>
+        </div>
+        <form id="closingForm">
+          <div class="entry-grid">
+            <label class="field required"><span>মাস</span><input type="month" id="mcMonth" required /></label>
+            <label class="field required wide"><span>শাখা</span><select id="mcBranch" required></select></label>
+          </div>
+          <!-- বাকি সব ঘর assets/app.js থেকে ধারাবাহিকভাবে তৈরি হয় (লাইনে ৩টা করে) -->
+          <div class="entry-grid" id="mcFields"></div>
+          <div class="form-actions">
+            <button class="btn primary" id="mcSave" type="submit">Save</button>
+            <button class="btn ghost" id="mcReset" type="button">Reset</button>
+            <button class="btn outline" id="mcEdit" type="button">Edit</button>
+            <span class="form-note">মাস ও শাখা বেছে Edit চাপলে আগের তথ্য আসবে</span>
+          </div>
+        </form>
+      </section>
+
+      <!-- ---------- দেওয়া এন্ট্রির তালিকা ---------- -->
+      <section class="card section entry-page" id="entryListCard">
+        <div class="section-head">
+          <h2 id="listTitle">ডেইলি এন্ট্রির তালিকা</h2>
+          <div class="actions">
+            <div class="field cal-field">
+              <span>তারিখ</span>
+              <input type="hidden" id="listDate" />
+              <button type="button" class="cal-trigger" id="listDateBtn">
+                <span id="listDateText">—</span><i>▾</i>
+              </button>
+              <div class="cal-pop" id="listCal" hidden>
+                <div class="cal-head">
+                  <button type="button" class="cal-nav" data-cal="prev">‹</button>
+                  <span id="listCalTitle">—</span>
+                  <button type="button" class="cal-nav" data-cal="next">›</button>
+                </div>
+                <div class="cal-dows">
+                  <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div class="cal-grid" id="listCalGrid"></div>
+              </div>
+            </div>
+            <label class="field" id="listMonthWrap" style="display:none">
+              <span>মাস</span>
+              <select id="listMonth"></select>
+            </label>
+            <button class="btn ghost" id="listReload" type="button">↻</button>
+          </div>
+        </div>
+
         <div class="table-wrap">
-          <table class="table">
+          <table class="list-table" id="tblEntryList">
             <thead>
               <tr>
                 <th>শাখা</th>
-                <th class="num">সদস্য</th>
-                <th class="num">ঋণগ্রহীতা</th>
-                <th class="num">সঞ্চয় স্থিতি</th>
-                <th class="num">আজকের কিস্তি</th>
-                <th class="num">আজকের বিতরণ</th>
-                <th class="num">ঋণ স্থিতি</th>
-                <th class="num">বকেয়া স্থিতি</th>
-                <th>রিকভারি</th>
+                <th>Actual Member</th>
+                <th>Actual Lonee</th>
+                <th>Savings</th>
+                <th>কিস্তি</th>
+                <th>Today Disbursement</th>
+                <th>Grant Total Disbursement</th>
+                <th>Loan Outstanding</th>
+                <th>Overdue Outstanding</th>
+                <th>Recovary Rate</th>
+                <th>Cash in Hand</th>
+                <th>Bank</th>
+                <th>কাজ</th>
               </tr>
             </thead>
-            <tbody id="rows"></tbody>
-            <tfoot id="rowsFoot"></tfoot>
+            <tbody id="entryListRows"></tbody>
+          </table>
+
+          <table class="list-table" id="tblClosingList" style="display:none">
+            <thead><tr id="closingListHead"></tr></thead>
+            <tbody id="closingListRows"></tbody>
           </table>
         </div>
       </section>
-
-      <div class="footer">ডেটা সোর্স: Neon Postgres — সংযোগ না পেলে data/seed.json থেকে ডেমো দেখানো হয়</div>
     </div>
 
-    <!-- ======================= daily entry ======================= -->
-    <section id="dailyEntryPage" class="entry-page card section" style="display:none">
-      <div class="section-head">
-        <h2>Daily Data Entry</h2>
-        <span class="badge info">একই তারিখ ও শাখা আবার দিলে আগের তথ্য আপডেট হবে</span>
-      </div>
-      <form id="dailyForm">
-        <div class="entry-grid">
-          <label class="field required"><span>তারিখ</span><input type="date" id="deDate" value="2026-09-28" required /></label>
-          <label class="field required"><span>শাখা</span><select id="deBranch" required></select></label>
-          <label class="field"><span>Actual Member</span><input type="number" id="deMember" step="1" /></label>
-          <label class="field"><span>Actual Loanee</span><input type="number" id="deLoanee" step="1" /></label>
-          <label class="field"><span>Savings</span><input type="number" id="deSavings" step="0.01" /></label>
-          <label class="field"><span>আজকের কিস্তি সংখ্যা</span><input type="number" id="deKisti" step="1" /></label>
-          <label class="field"><span>Today Disbursement</span><input type="number" id="deToday" step="0.01" /></label>
-          <label class="field"><span>Grant Total Disbursement</span><input type="number" id="deGrant" step="0.01" /></label>
-          <label class="field"><span>Loan Outstanding</span><input type="number" id="deLoanOut" step="0.01" /></label>
-          <label class="field"><span>Overdue Outstanding</span><input type="number" id="deOverdue" step="0.01" /></label>
-          <label class="field"><span>Recovery Rate (%)</span><input type="number" id="deRecovery" step="0.01" min="0" max="100" /></label>
-          <label class="field"><span>Cash in Hand</span><input type="number" id="deCash" step="0.01" /></label>
-          <label class="field"><span>Bank</span><input type="number" id="deBank" step="0.01" /></label>
-        </div>
-        <div class="form-actions">
-          <button class="btn primary" id="deSave" type="submit">Save Daily Data</button>
-          <span class="form-note">POST /api/daily → daily_entries</span>
-        </div>
-      </form>
-    </section>
+    <!-- =================================================================
+         PAGE 2 — COMPARE
+         ================================================================= -->
+    <section id="comparePage" class="sheet-page cmp-sheet card section" style="display:none">
 
-    <!-- ======================= month closing entry ======================= -->
-    <section id="closingEntryPage" class="entry-page card section" style="display:none">
-      <div class="section-head">
-        <h2>Month Closing Data Entry</h2>
-        <span class="badge info">একই মাস ও শাখা আবার দিলে আগের তথ্য আপডেট হবে</span>
-      </div>
-      <form id="closingForm">
-        <div class="entry-grid">
-          <label class="field required"><span>মাস</span><input type="month" id="mcMonth" value="2026-09" required /></label>
-          <label class="field required"><span>শাখা</span><select id="mcBranch" required></select></label>
-          <label class="field"><span>সমিতি</span><input type="number" id="mcSamiti" step="1" /></label>
-          <label class="field"><span>সদস্য হ্রাস / বৃদ্ধি</span><input type="number" id="mcMemberChange" step="1" /></label>
-          <label class="field"><span>সদস্য মোট</span><input type="number" id="mcMemberTotal" step="1" /></label>
-          <label class="field"><span>ঋণী হ্রাস / বৃদ্ধি</span><input type="number" id="mcLoaneeChange" step="1" /></label>
-          <label class="field"><span>ঋণী মোট</span><input type="number" id="mcLoaneeTotal" step="1" /></label>
-          <label class="field"><span>সঞ্চয় স্থিতি হ্রাস / বৃদ্ধি</span><input type="number" id="mcSavingsChange" step="0.01" /></label>
-          <label class="field"><span>সঞ্চয় স্থিতি মোট</span><input type="number" id="mcSavingsTotal" step="0.01" /></label>
-          <label class="field"><span>ঋণ স্থিতি হ্রাস / বৃদ্ধি</span><input type="number" id="mcLoanChange" step="0.01" /></label>
-          <label class="field"><span>ঋণ স্থিতি মোট</span><input type="number" id="mcLoanTotal" step="0.01" /></label>
-          <label class="field"><span>সাধারণ বকেয়া হ্রাস / বৃদ্ধি</span><input type="number" id="mcOverdueChange" step="0.01" /></label>
-          <label class="field"><span>সাধারণ বকেয়া মোট</span><input type="number" id="mcOverdueTotal" step="0.01" /></label>
-          <label class="field"><span>OTR বিগত মাস (%)</span><input type="number" id="mcOtrPrev" step="0.01" /></label>
-          <label class="field"><span>OTR এ মাস (%)</span><input type="number" id="mcOtrCurrent" step="0.01" /></label>
-          <label class="field"><span>হাতে নগদ</span><input type="number" id="mcCash" step="0.01" /></label>
-          <label class="field"><span>ব্যাংক</span><input type="number" id="mcBank" step="0.01" /></label>
-          <label class="field"><span>লাভ / ক্ষতি</span><input type="number" id="mcProfit" step="0.01" /></label>
-          <label class="field"><span>বিতরণ সংখ্যা</span><input type="number" id="mcDisCount" step="1" /></label>
-          <label class="field"><span>বিতরণ টাকা</span><input type="number" id="mcDisAmount" step="0.01" /></label>
-          <label class="field"><span>মাসিক কিস্তি সংখ্যা</span><input type="number" id="mcKisti" step="1" /></label>
+      <div class="filters no-print">
+        <div class="field cal-field">
+          <span>তারিখ</span>
+          <input type="hidden" id="cmpDate" />
+          <button type="button" class="cal-trigger" id="cmpDateBtn">
+            <span id="cmpDateText">—</span><i>▾</i>
+          </button>
+          <div class="cal-pop" id="cmpCal" hidden>
+            <div class="cal-head">
+              <button type="button" class="cal-nav" data-cal="prev">‹</button>
+              <span id="calTitle">—</span>
+              <button type="button" class="cal-nav" data-cal="next">›</button>
+            </div>
+            <div class="cal-dows">
+              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+          </div>
         </div>
-        <div class="form-actions">
-          <button class="btn primary" id="mcSave" type="submit">Save Month Closing</button>
-          <span class="form-note">POST /api/month-close → month_closings</span>
-        </div>
-      </form>
-    </section>
-
-    <!-- ======================= compare sheet ======================= -->
-    <section id="comparePage" class="sheet-page compare-sheet card section" style="display:none">
-      <div class="compare-brand">
-        <div class="logo-mark">⌂</div>
-        <div>
-          <div class="sheet-title">Bandhu Kallyan Foundation</div>
-          <div class="sheet-sub">Narail Area</div>
-        </div>
-      </div>
-      <div class="compare-meta">
-        <b><span class="cmp-from">—</span> → <span class="cmp-to">—</span></b>
-        <b>Branch comparison</b>
+        <button class="btn primary" id="cmpApply" type="button">দেখান</button>
+        <button class="btn ghost" id="cmpCsv" type="button">↥ CSV</button>
         <button class="btn ghost" id="printBtn" type="button">⎙ প্রিন্ট</button>
+        <span class="badge muted" id="cmpSource">—</span>
       </div>
-      <div class="table-wrap">
-        <table class="sheet-table compare-table">
+
+      <div class="table-wrap cmp-wrap">
+        <table class="cmp-table" id="tblCompare">
           <thead>
+            <!-- ব্যানার সারি: লোগো, নাম, এরিয়া -->
+            <tr class="banner">
+              <td colspan="25">
+                <div class="cmp-banner">
+                  <i class="bkf-logo lg"></i>
+                  <div>
+                    <div class="t1">Bandhu Kallyan Foundation</div>
+                    <div class="t2">Narail Area</div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr class="banner2">
+              <td colspan="25" class="b-meta">
+                <span id="cmpMonthLabel">Month-—</span>
+                <span>Date</span>
+                <span id="cmpDateLabel">—</span>
+                <span>Day</span>
+                <span id="cmpDayLabel">—</span>
+              </td>
+            </tr>
+
             <tr>
               <th rowspan="2">Branch</th>
-              <th colspan="3">Member</th>
-              <th colspan="3">Loanee</th>
-              <th colspan="3">Savings</th>
-              <th colspan="3">Loan Outstanding</th>
+              <th colspan="2">Member</th>
+              <th rowspan="2">Inc / Dec</th>
+              <th colspan="2">Loanee</th>
+              <th rowspan="2">Inc / Dec</th>
+              <th colspan="2">Savings</th>
+              <th rowspan="2">Inc / Dec</th>
+              <th colspan="2">Outstading</th>
+              <th rowspan="2">Diferent</th>
               <th rowspan="2">O.T.R</th>
-              <th rowspan="2">Disbursement</th>
+              <th rowspan="2">Dis</th>
+              <th colspan="2">Monthly</th>
+              <th rowspan="2">Due</th>
+              <th colspan="2">overdue</th>
+              <th rowspan="2">Inc / Dec</th>
+              <th rowspan="2">Cash<br />In<br />Hand</th>
+              <th rowspan="2">BANK</th>
+              <th rowspan="2">Mont<br />hly<br />Kisti<br />Aday<br />( % )</th>
+              <th rowspan="2">Weekl<br />y<br />Loney</th>
             </tr>
             <tr>
-              <th class="cmp-from">—</th><th class="cmp-to">—</th><th>Inc / Dec</th>
-              <th class="cmp-from">—</th><th class="cmp-to">—</th><th>Inc / Dec</th>
-              <th class="cmp-from">—</th><th class="cmp-to">—</th><th>Inc / Dec</th>
-              <th class="cmp-from">—</th><th class="cmp-to">—</th><th>Inc / Dec</th>
+              <th class="h-from cmp-from">—</th><th class="h-to cmp-to">—</th>
+              <th class="h-from cmp-from">—</th><th class="h-to cmp-to">—</th>
+              <th class="h-from cmp-from">—</th><th class="h-to cmp-to">—</th>
+              <th class="h-from cmp-from">—</th><th class="h-to cmp-to">—</th>
+              <th>Total</th><th>Aday</th>
+              <th>Up To</th><th>This<br />Month</th>
             </tr>
           </thead>
           <tbody id="compareRows"></tbody>
           <tfoot id="compareFoot"></tfoot>
         </table>
       </div>
+
+      <!-- মোবাইলে টেবিলের বদলে শাখাভিত্তিক কার্ড -->
+      <div class="cmp-cards" id="compareCards"></div>
     </section>
 
-    <!-- ======================= month closing sheet ======================= -->
-    <section id="closingPage" class="sheet-page card section" style="display:none">
-      <div class="sheet-title">বন্ধু কল্যাণ ফাউন্ডেশন</div>
-      <div class="sheet-sub">শাখা ভিত্তিক মাসিক অর্জন সিট</div>
-      <div class="sheet-month">
-        মাসের নাম- <b id="autoMonth">—</b> <span>নড়াইল এরিয়া</span>
+    <!-- =================================================================
+         PAGE 3 — MONTH CLOSING DATA
+         ================================================================= -->
+    <section id="closingPage" class="sheet-page mcs-sheet card section" style="display:none">
+
+      <div class="filters no-print">
+        <label class="field">মাস<select id="mcsMonth"></select></label>
+        <button class="btn primary" id="mcsApply" type="button">দেখান</button>
+        <button class="btn ghost" id="mcsCsv" type="button">↥ CSV</button>
+        <button class="btn ghost" id="mcsPrint" type="button">⎙ প্রিন্ট</button>
+        <span class="zoom-group">
+          <button class="btn ghost zoom-btn" id="mcsZoomOut" type="button" title="ছোট">−</button>
+          <span class="zoom-val" id="mcsZoomVal">১০০%</span>
+          <button class="btn ghost zoom-btn" id="mcsZoomIn" type="button" title="বড়">+</button>
+          <button class="btn ghost zoom-btn wide" id="mcsZoomFit" type="button" title="পর্দায় আঁটাও">⤢</button>
+        </span>
+        <span class="badge muted" id="mcsSource">—</span>
       </div>
 
-      <div class="table-wrap">
-        <table class="sheet-table">
-          <thead>
-            <tr>
-              <th>ক্র নং</th>
-              <th>শাখার নাম</th>
-              <th>সমিতি</th>
-              <th>সদস্য<br />হ্রাস/বৃদ্ধি</th>
-              <th>সদস্য মোট</th>
-              <th>ঋণী<br />হ্রাস/বৃদ্ধি</th>
-              <th>ঋণী মোট</th>
-              <th>সঞ্চয় স্থিতি<br />হ্রাস/বৃদ্ধি</th>
-              <th>সঞ্চয় মোট</th>
-              <th>ঋণ স্থিতি<br />হ্রাস/বৃদ্ধি</th>
-              <th>ঋণ স্থিতি মোট</th>
-              <th>সাধারণ বকেয়া<br />হ্রাস/বৃদ্ধি</th>
-              <th>সাধারণ বকেয়া মোট</th>
-              <th>বিগত মাস OTR</th>
-              <th>এ মাস OTR</th>
-            </tr>
-          </thead>
-          <tbody id="closingRows"></tbody>
-          <tfoot id="closingFoot"></tfoot>
-        </table>
-      </div>
+      <div class="mcs-scroll">
+        <div class="mcs-doc">
 
-      <h3 class="mini-head">পরিবর্তন ও OTR সারসংক্ষেপ</h3>
-      <div class="table-wrap">
-        <table class="sheet-table">
-          <thead>
+          <!-- ---------- শিরোনাম ---------- -->
+          <div class="mcs-head">
+            <i class="bkf-logo lg"></i>
+            <div class="mcs-h1">বন্ধু কল্যাণ ফাউন্ডেশন</div>
+          </div>
+          <div class="mcs-h2">শাখা ভিত্তিক মাসিক অর্জন সিট</div>
+
+          <table class="mcs-meta">
             <tr>
-              <th>শাখা</th>
-              <th>সঞ্চয় পরিবর্তন</th>
-              <th>ঋণ স্থিতি পরিবর্তন</th>
-              <th>বকেয়া পরিবর্তন</th>
-              <th>বকেয়া গত মাস</th>
-              <th>বকেয়া এ মাস</th>
-              <th>বিগত OTR</th>
-              <th>এ মাস OTR</th>
-              <th>OTR পরিবর্তন</th>
+              <td class="m-month">মাসের নাম- <b id="autoMonth">—</b></td>
+              <td class="m-gap"></td>
+              <td class="m-area">নড়াইল এরিয়া</td>
             </tr>
-          </thead>
-          <tbody id="recoveryRows"></tbody>
-        </table>
+          </table>
+
+          <!-- ---------- টেবিল ক : মূল সিট ---------- -->
+          <table class="mcs-table" id="tblMain">
+            <thead>
+              <tr>
+                <th rowspan="2">শাখার<br />নাম</th>
+                <th rowspan="2">সমিতি</th>
+                <th colspan="2">সদস্য</th>
+                <th colspan="2">ঋণী</th>
+                <th colspan="2">সঞ্চয় স্থিতি</th>
+                <th colspan="2">ঋণ স্থিতি</th>
+                <th colspan="2">সাধারণ বকেয়া</th>
+                <th colspan="2">OTR</th>
+                <th rowspan="2">হ্রাস /<br />বৃদ্ধি</th>
+                <th rowspan="2">হাতে নগদ</th>
+                <th rowspan="2">ব্যাংক</th>
+                <th colspan="3">লাভ/ক্ষতি</th>
+                <th colspan="2" id="disHead">বিতরণ</th>
+              </tr>
+              <tr>
+                <th>হ্রাস /<br />বৃদ্ধি</th><th class="h-total">মোট</th>
+                <th>হ্রাস /<br />বৃদ্ধি</th><th class="h-total">মোট</th>
+                <th>হ্রাস /বৃদ্ধি</th><th class="h-total">মোট</th>
+                <th>হ্রাস /বৃদ্ধি</th><th class="h-total">মোট</th>
+                <th>হ্রাস /বৃদ্ধি</th><th class="h-total">মোট</th>
+                <th class="h-otr-prev">বিগত মাস</th><th class="h-otr-cur">এ মাস</th>
+                <th>এ মাসে</th><th>এ বছর</th><th>এ যাবৎ</th>
+                <th>সংখ্যা</th><th>টাকা</th>
+              </tr>
+            </thead>
+            <tbody id="closingRows"></tbody>
+            <tfoot id="closingFoot"></tfoot>
+          </table>
+
+          <!-- ---------- খ : লভ্যাংশ  +  গ : আদায় ---------- -->
+          <div class="mcs-band band2">
+            <table class="mcs-table narrow" id="tblDividend">
+              <thead>
+                <tr>
+                  <th>শাখা</th>
+                  <th>সংখ্যা</th>
+                  <th>সঞ্চয়<br />লভ্যাংশ</th>
+                  <th class="tiny">মাসিক<br />কিস্তির<br />সংখ্যা</th>
+                </tr>
+              </thead>
+              <tbody id="dividendRows"></tbody>
+              <tfoot id="dividendFoot"></tfoot>
+            </table>
+
+            <table class="mcs-table" id="tblRecovery">
+              <thead>
+                <tr>
+                  <th rowspan="2">শাখা</th>
+                  <th rowspan="2">আদায়যোগ্য</th>
+                  <th rowspan="2">আদায়কৃত</th>
+                  <th rowspan="2">OTR</th>
+                  <th rowspan="2" class="h-par-prev">বিগত পার</th>
+                  <th rowspan="2" class="h-par-cur">এ মাসে<br />পার</th>
+                  <th rowspan="2">রাইট অফ<br />আদায়</th>
+                  <th rowspan="2" class="h-due-prev">বকেয়া<br />গত মাস</th>
+                  <th rowspan="2" class="h-due-cur">বকেয়া এ<br />মাস</th>
+                  <th rowspan="2">হ্রাস /<br />বৃদ্ধি</th>
+                  <th rowspan="2">LLP</th>
+                  <th colspan="2">চলতি বকেয়া</th>
+                  <th rowspan="2">হ্রাস /বৃদ্ধি</th>
+                  <th rowspan="2">এ মাসে<br />নতুন</th>
+                </tr>
+                <tr><th>গত মাস</th><th>বর্তমান মাস</th></tr>
+              </thead>
+              <tbody id="recoveryRows"></tbody>
+              <tfoot id="recoveryFoot"></tfoot>
+            </table>
+          </div>
+
+          <!-- ---------- ঘ : Ex Recovery  +  ঙ : Overdue  +  চ : ডিপিএস ---------- -->
+          <div class="mcs-band band3">
+            <table class="mcs-table narrow" id="tblEx">
+              <thead>
+                <tr><th>শাখা</th><th>সংখ্যা</th><th>Ex<br />Recovery</th></tr>
+              </thead>
+              <tbody id="exRows"></tbody>
+              <tfoot id="exFoot"></tfoot>
+            </table>
+
+            <table class="mcs-table" id="tblOverdue">
+              <thead>
+                <tr>
+                  <th rowspan="2">শাখা</th>
+                  <th colspan="3">Overdue</th>
+                  <th colspan="2">কল্যাণ তহবিল ফেরত</th>
+                  <th colspan="2">ঋণ আদায়</th>
+                </tr>
+                <tr>
+                  <th>গত মাস</th><th>এ মাস</th><th>হ্রাস /বৃদ্ধি</th>
+                  <th>সংখ্যা</th><th>টাকা</th>
+                  <th>ঋণ</th><th>সাঃচার্জ</th>
+                </tr>
+              </thead>
+              <tbody id="overdueRows"></tbody>
+              <tfoot id="overdueFoot"></tfoot>
+            </table>
+
+            <table class="mcs-table" id="tblDps">
+              <thead>
+                <tr>
+                  <th rowspan="2">শাখা</th>
+                  <th colspan="2" id="dpsHead">ডিপিএস নতুন</th>
+                  <th colspan="2">পূর্ণ ডিপিএস ফেরত</th>
+                  <th colspan="2">সঞ্চয়</th>
+                </tr>
+                <tr>
+                  <th>সংখ্যা</th><th>টাকা</th>
+                  <th>সংখ্যা</th><th>টাকা</th>
+                  <th>আদায়</th><th>ফেরত</th>
+                </tr>
+              </thead>
+              <tbody id="dpsRows"></tbody>
+              <tfoot id="dpsFoot"></tfoot>
+            </table>
+          </div>
+
+        </div>
       </div>
     </section>
 
   </main>
 </div>
+
+<!-- অ্যাডমিন -->
+<button type="button" class="admin-fab" id="adminFab" title="অ্যাডমিন">🔒</button>
+
+<div class="modal who-gate" id="whoModal" hidden>
+  <div class="modal-box">
+    <div class="gate-head">
+      <i class="bkf-logo"></i>
+      <div>
+        <h3>পরিচয় দিন</h3>
+        <p class="muted-note">বন্ধু কল্যাণ ফাউন্ডেশন — নড়াইল এরিয়া</p>
+      </div>
+    </div>
+
+    <p class="gate-msg">
+      এই পাতায় আসল হিসাবের তথ্য রাখা হয়। কে কখন কোন এন্ট্রি দিল বা বদলাল সেটা
+      জানা থাকা দরকার, তাই <b>নাম ও শাখা দেওয়া বাধ্যতামূলক</b>।
+      দুটোই না দিলে পাতা খোলা বা এন্ট্রি দেওয়া যাবে না।
+    </p>
+
+    <label class="who-field"><span>আপনার নাম <em>*</em></span>
+      <input type="text" id="whoName" placeholder="যেমন: মোঃ আজাহার" autocomplete="name" />
+    </label>
+    <label class="who-field"><span>শাখা / এরিয়া <em>*</em></span>
+      <select id="whoBranch"></select>
+    </label>
+    <p class="gate-note" id="whoError" hidden></p>
+
+    <div class="modal-actions">
+      <button class="btn primary" id="whoSave" type="button">প্রবেশ করুন</button>
+    </div>
+    <p class="gate-foot">একবার দিলেই হবে — এই ব্রাউজার মনে রাখবে। পরে বদলাতে উপরের
+      “জন অনলাইনে” লেখায় চাপ দিন।</p>
+  </div>
+</div>
+
+<div class="modal" id="adminModal" hidden>
+  <div class="modal-box">
+    <h3>অ্যাডমিন লগইন</h3>
+    <p class="muted-note">অ্যাডমিন সুবিধা ব্যবহার করতে পাসওয়ার্ড দিন</p>
+    <input type="password" id="adminPass" placeholder="পাসওয়ার্ড" autocomplete="current-password" />
+    <div class="modal-actions">
+      <button class="btn primary" id="adminLogin" type="button">লগইন</button>
+      <button class="btn ghost" id="adminCancel" type="button">বাতিল</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= নিচের মেনু — তিনটা বাটন ======================= -->
+<nav class="bottom-nav">
+  <button type="button" class="nav active" data-page="entry"><i>✎</i><span>এন্ট্রি</span></button>
+  <button type="button" class="nav" data-page="compare"><i>⇄</i><span>Compare</span></button>
+  <button type="button" class="nav" data-page="closing"><i>▤</i><span>Month Closing</span></button>
+</nav>
 
 <div class="toast-stack" id="toastStack"></div>
 <script src="assets/app.js"></script>

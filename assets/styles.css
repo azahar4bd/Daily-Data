@@ -21,7 +21,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: Inter, system-ui, -apple-system, "Noto Sans Bengali", sans-serif;
+  font-family: Inter, "Noto Sans Bengali", "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
 }
 
 /* ---------- layout ---------- */
@@ -58,7 +58,7 @@ body {
 
 .side small { display: block; margin: 34px 10px 10px; color: #98a2b3; }
 
-.main { flex: 1; min-width: 0; padding: 25px 30px; overflow: auto; }
+.main { flex: 1; min-width: 0; padding: 25px 30px; }
 
 .top {
   display: flex;
@@ -200,13 +200,44 @@ body {
 
 /* ---------- data entry ---------- */
 
+/* একই লাইনে ঠিক ৩টা ঘর, উপর-নিচে সাজানো */
 .entry-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin: 15px 0 20px;
 }
 .entry-grid .field { min-width: 0; }
+.entry-grid .field.spacer { visibility: hidden; }
+
+/* গ্রুপের নাম — পুরো লাইন জুড়ে */
+.group-head {
+  grid-column: 1 / -1;
+  margin: 10px 0 -4px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #e4e7ec;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+.group-head:first-child { margin-top: 0; }
+
+.entry-page + .entry-page { margin-top: 18px; }
+
+/* ছোট স্ক্রিনেও ৩ কলামই থাকে — শুধু ফাঁক ও লেখা ছোট হয় */
+@media (max-width: 620px) {
+  .entry-grid { gap: 8px; }
+  .entry-grid .field > span { font-size: 11px; line-height: 1.25; }
+  .entry-grid .field input,
+  .entry-grid .field select { padding: 8px 7px; font-size: 13px; }
+}
+@media (max-width: 380px) {
+  .entry-grid { gap: 6px; }
+  .entry-grid .field > span { font-size: 10px; }
+  .entry-grid .field input,
+  .entry-grid .field select { padding: 7px 5px; font-size: 12px; }
+}
 
 .form-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .form-note { font-size: 12px; color: var(--muted); }
@@ -238,7 +269,7 @@ body {
 
 /* ---------- printable sheet views ---------- */
 
-.sheet-page { overflow: auto; }
+.sheet-page { overflow: visible; }
 .compare-sheet { background: #fff; padding: 10px; }
 .compare-brand { display: flex; justify-content: center; align-items: center; gap: 14px; }
 .logo-mark { font-size: 42px; line-height: 1; }
@@ -317,6 +348,7 @@ body {
   .main { padding: 10px; }
   .filters { padding: 10px; gap: 8px; }
   .field { min-width: 140px; flex: 1; }
+  .entry-grid .field { min-width: 0; }
   .btn { padding: 9px 11px; font-size: 12px; }
 
   .compare-sheet { padding: 5px; border-radius: 8px; }
@@ -345,6 +377,2060 @@ body {
 }
 
 @media print {
-  .side, .top, .filters, .cards, .footer, .menu-toggle, .toast-stack { display: none !important; }
-  .sheet-page { display: block !important; border: 0; }
+  .side, .top, .filters, .cards, .footer, .menu-toggle,
+  .toast-stack, .no-print, .entry-page { display: none !important; }
+  /* খোলা পেজটাই ছাপা হয় — লুকানো পেজ inline display:none রাখে */
+  .sheet-page { border: 0; box-shadow: none; padding: 0; }
+  .sheet-table { min-width: 0; font-size: 8.5px; }
+  @page { size: A4 landscape; margin: 8mm; }
 }
+
+/* ---------- v2: three-page layout tweaks ---------- */
+
+.nav.static.live { color: #12b76a; opacity: 1; }
+.nav.static.demo { color: #f79009; opacity: 1; }
+
+.sheet-table td.left,
+.sheet-table th.left { text-align: left; white-space: normal; }
+.sheet-table td .form-note { font-size: 10px; font-weight: 400; }
+.sheet-table .empty { padding: 22px; color: var(--muted); font-weight: 600; }
+.sheet-page .filters { margin: 14px 0 6px; }
+.sheet-month .badge { float: none; margin-left: 10px; }
+
+.compare-table { min-width: 1400px; }
+
+/* ---------- entry page: daily / month-closing switch ---------- */
+
+.form-switch {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 6px;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px #1018280d;
+}
+.switch-btn {
+  flex: 1;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.switch-btn:hover { background: #f2f4f7; color: #1d2939; }
+.switch-btn.active {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 2px 6px #1570ef55;
+}
+.switch-btn.active:hover { background: var(--blue); color: #fff; }
+
+@media (max-width: 520px) {
+  .form-switch { flex-direction: row; gap: 6px; padding: 5px; }
+  .switch-btn { padding: 10px 6px; font-size: 12.5px; }
+}
+
+/* ---------- entry grid: ঘরগুলোর মাঝে ঠিকঠাক ফাঁক ---------- */
+/* date/month/select-এর নিজস্ব প্রস্থ কলামের চেয়ে বড় হয়ে পাশের ঘরে ঠেকে যাচ্ছিল */
+
+.entry-grid { column-gap: 14px; row-gap: 14px; }
+
+.entry-grid .field { min-width: 0; }
+.entry-grid .field > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.entry-grid .field input,
+.entry-grid .field select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 620px) {
+  .entry-grid { column-gap: 10px; row-gap: 10px; }
+}
+@media (max-width: 380px) {
+  .entry-grid { column-gap: 8px; row-gap: 8px; }
+}
+
+/* শাখার ড্রপডাউন দুই কলাম জুড়ে — পুরো নাম দেখা যায় */
+.entry-grid .field.wide { grid-column: span 2; }
+.entry-grid .field.wide select { text-overflow: ellipsis; }
+
+/* ---------- Save / Reset / Edit ---------- */
+.btn.outline {
+  border: 1px solid var(--blue);
+  background: #fff;
+  color: var(--blue);
+  font-weight: 700;
+}
+.btn.outline:hover { background: #eff4ff; }
+.form-actions .btn { min-width: 96px; }
+
+/* ==========================================================================
+   নিচের মেনু — তিনটা বাটন পাশাপাশি (সাইডবারের বদলে)
+   ========================================================================== */
+
+.app { display: block; }
+.main { padding: 22px; padding-bottom: 96px; }
+
+.bottom-nav {
+  position: fixed;
+  z-index: 60;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: #fff;
+  box-shadow: 0 -2px 12px #1018281a;
+}
+.bottom-nav .nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin: 0;
+  padding: 9px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+.bottom-nav .nav i { font-size: 18px; font-style: normal; line-height: 1; }
+.bottom-nav .nav:hover { background: #f2f4f7; color: #1d2939; }
+.bottom-nav .nav.active { background: var(--blue); color: #fff; }
+
+@media print { .bottom-nav { display: none !important; } }
+
+@media (max-width: 550px) {
+  .main { padding: 12px 10px 96px; }
+  .bottom-nav .nav { font-size: 11.5px; }
+}
+
+/* ==========================================================================
+   Compare sheet — এক্সেল শিটের হুবহু নকল
+   ========================================================================== */
+
+.cmp-sheet { background: #fff; padding: 10px; }
+
+.cmp-table {
+  min-width: 1500px;
+  border-collapse: collapse;
+  font-family: Inter, "Noto Sans Bengali", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  color: #000;
+}
+.cmp-table th,
+.cmp-table td {
+  padding: 5px 4px;
+  border: 1px solid #000;
+  text-align: center;
+  white-space: nowrap;
+}
+.cmp-table th { font-weight: 700; }
+.cmp-table td { font-weight: 700; }
+
+/* ব্যানার সারি — বর্ডারহীন */
+.cmp-table .banner td,
+.cmp-table .banner2 td { border: 0; background: #fff; }
+.cmp-table .b-blank { border: 1px solid #1f4e9c !important; width: 36px; height: 34px; }
+.cmp-table .b-logo { text-align: center; }
+.cmp-table .b-title .t1 { font-size: 26px; font-weight: 400; letter-spacing: .2px; }
+.cmp-table .b-title .t2 { margin-top: 2px; font-size: 13px; font-weight: 400; }
+.cmp-table .b-meta { text-align: left; font-size: 12px; font-weight: 400; }
+.cmp-table .b-meta span { display: inline-block; margin-right: 34px; }
+
+/* হেডারের তারিখ ঘর */
+.cmp-table .h-from { background: #fff; font-size: 10px; }
+.cmp-table .h-to { background: #ffff00; font-size: 10px; color: #3c6fb4; }
+.cmp-table th.soft { color: #9aa4b2; font-weight: 400; }
+
+/* ঘরের রং — শিটের মতো */
+.cmp-table .c-branch { text-align: left; padding-left: 7px; }
+.cmp-table tbody tr:first-child .c-branch { background: #cfe7d8; color: #1f6b3a; }
+.cmp-table .c-from  { background: #cfe2f3; }
+.cmp-table .c-to    { background: #ffff00; }
+.cmp-table .c-yellow { background: #ffff00; }
+.cmp-table .c-blue2 { background: #9fc5e8; }
+.cmp-table .c-delta { background: #fff; }
+.cmp-table .c-delta.neg { background: #d9d9d9; }
+.cmp-table td.soft { color: #8a94a6; font-weight: 400; }
+
+.cmp-table tfoot td { background: #fff; font-weight: 700; }
+.cmp-table tfoot .c-branch { text-align: left; }
+.cmp-table .empty { background: #fff; font-weight: 600; color: var(--muted); padding: 20px; }
+
+@media print {
+  .cmp-table { min-width: 0; font-size: 7.5px; }
+  .cmp-table th, .cmp-table td { padding: 3px 2px; }
+}
+
+
+/* ==========================================================================
+   BKF লোগো — ইনলাইন data URI, তাই নেট ছাড়া প্রিভিউতেও দেখা যায়
+   ========================================================================== */
+
+.bkf-logo {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 39px;
+  background: url("data:image/png;base64,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") center/contain no-repeat;
+}
+.bkf-logo.lg { width: 58px; height: 51px; }
+
+.title.with-logo { display: flex; align-items: center; gap: 14px; }
+.title.with-logo h1 { margin: 0; }
+.title.with-logo p { margin: 4px 0 0; }
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.sheet-head .sheet-title,
+.sheet-head .sheet-sub { text-align: left; }
+
+@media (max-width: 550px) {
+  .bkf-logo { width: 36px; height: 32px; }
+  .bkf-logo.lg { width: 44px; height: 39px; }
+}
+@media print {
+  .bkf-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* ==========================================================================
+   Month Closing সিট — এক্সেল শিটের হুবহু নকল
+   ========================================================================== */
+
+.mcs-sheet { background: #fff; padding: 12px; }
+.mcs-scroll { overflow: auto; }
+.mcs-doc {
+  display: inline-block;
+  width: max-content;
+  padding: 6px 10px 14px;
+  background: #fff;
+  font-family: "Noto Sans Bengali", Inter, Arial, Helvetica, sans-serif;
+  color: #000;
+}
+
+.mcs-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.mcs-h1 { font-size: 30px; font-weight: 700; }
+.mcs-h2 {
+  margin: 2px 0 10px;
+  font-size: 26px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.mcs-meta { border-collapse: collapse; width: 100%; margin-bottom: 6px; font-size: 14px; }
+.mcs-meta td { padding: 4px 10px; }
+.mcs-meta .m-month { width: 300px; border: 1px solid #000; text-align: center; }
+.mcs-meta .m-gap { border: 0; }
+.mcs-meta .m-area { width: 220px; border: 1px solid #000; text-align: center; }
+
+.mcs-table {
+  border-collapse: collapse;
+  font-size: 12px;
+  background: #fff;
+}
+#tblMain { width: 100%; }
+.mcs-table th,
+.mcs-table td {
+  padding: 4px 6px;
+  border: 1px solid #000;
+  text-align: right;
+  white-space: nowrap;
+}
+.mcs-table th {
+  background: #fff;
+  font-weight: 400;
+  text-align: center;
+  line-height: 1.15;
+}
+.mcs-table th.tiny { font-size: 9px; }
+.mcs-table td.b-name { text-align: left; font-size: 11px; }
+.mcs-table tfoot td { font-weight: 700; }
+.mcs-table .empty { text-align: center; padding: 18px; color: var(--muted); }
+
+/* হিসাব করা ঘরগুলোর হালকা হলুদ রং — শিটের মতো */
+.mcs-table td.hl,
+.mcs-table tr.hl td { background: #fde9b3; }
+.mcs-table tfoot td { background: #fde9b3; }
+#tblMain tfoot td { background: #fff; }
+#tblMain tfoot td.hl { background: #fde9b3; }
+
+/* পাশাপাশি বসা ছোট টেবিলগুলো */
+.mcs-band {
+  display: flex;
+  align-items: flex-start;
+  gap: 26px;
+  margin-top: 22px;
+}
+.mcs-table.narrow { font-size: 11px; }
+
+.mcs-date-label { margin: 22px 0 -16px 300px; font-size: 13px; }
+
+@media print {
+  /* A4 ল্যান্ডস্কেপ, ০.৩ ইঞ্চি মার্জিন */
+  @page { size: A4 landscape; margin: 0.3in; }
+
+  html, body {
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  .mcs-sheet,
+  .mcs-sheet.card {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+  .main { padding: 0 !important; }
+
+  /* স্ক্রলবার নয় — পুরো সিট এক পাতায় বসাতে হুবহু মাপে ছোট করা হয় */
+  .mcs-scroll {
+    overflow: visible !important;
+    width: auto !important;
+    height: auto !important;
+  }
+  #entryPage, #comparePage { display: none !important; }
+  .mcs-doc {
+    min-width: 0 !important;
+    padding: 0;
+    /* zoom স্ক্রিপ্ট থেকে বসে — লেআউটসহ ছোট হয়, তাই উপচে পড়ে না */
+  }
+
+  .mcs-table td.hl,
+  .mcs-table tr.hl td,
+  .mcs-table tfoot td,
+  .bkf-logo {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* কোনো অংশ যেন পাতা লাফিয়ে না যায় */
+  .mcs-doc, .mcs-table, .mcs-band, .mcs-band > * {
+    page-break-inside: auto;
+    break-inside: auto;
+    page-break-before: auto;
+    break-before: auto;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+}
+
+/* প্রিন্টের মাপ নেওয়ার সময় — কনটেন্টকে নিজের আসল চওড়ায় সংকুচিত হতে দিই */
+body.printing .mcs-doc { min-width: 0 !important; }
+body.printing .mcs-scroll { overflow: visible !important; }
+
+/* ---------- নিচের মেনু বারের রং ---------- */
+
+.bottom-nav {
+  border-top: 0;
+  background: linear-gradient(135deg, #0b2c6f 0%, #14459c 45%, #1d6fd8 100%);
+  box-shadow: 0 -4px 18px #10182833;
+}
+.bottom-nav .nav {
+  color: #cfe0ff;
+  text-shadow: 0 1px 1px #0b1f4a55;
+}
+.bottom-nav .nav:hover {
+  background: #ffffff1f;
+  color: #fff;
+}
+.bottom-nav .nav.active {
+  background: #fff;
+  color: #14459c;
+  text-shadow: none;
+  box-shadow: 0 2px 8px #0b1f4a4d;
+}
+.bottom-nav .nav.active i { color: #1d6fd8; }
+
+/* ---------- নিচের দুই সারির টেবিল উপরের টেবিলের সমান চওড়া ---------- */
+
+.mcs-band {
+  width: 100%;
+  align-items: stretch;
+}
+.mcs-band > .mcs-table {
+  flex: 1 1 auto;      /* বাড়তি জায়গা ভাগ করে নেয় — মিলিয়ে মূল টেবিলের সমান */
+  width: auto;
+}
+.mcs-band > .mcs-table.narrow { flex: 0 1 auto; }
+
+/* ---------- স্ক্রলবার সব সময় দেখা যাবে ---------- */
+
+.mcs-scroll {
+  overflow-x: scroll;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-color: #98a2b3 #eef1f6;
+  scrollbar-width: auto;
+}
+.mcs-scroll::-webkit-scrollbar { height: 12px; -webkit-appearance: none; }
+.mcs-scroll::-webkit-scrollbar-track {
+  background: #eef1f6;
+  border-radius: 8px;
+}
+.mcs-scroll::-webkit-scrollbar-thumb {
+  background: #98a2b3;
+  border: 2px solid #eef1f6;
+  border-radius: 8px;
+}
+.mcs-scroll::-webkit-scrollbar-thumb:hover { background: #667085; }
+
+@media print {
+  .mcs-scroll { overflow: visible !important; scrollbar-gutter: auto; }
+  .mcs-scroll::-webkit-scrollbar { display: none; }
+}
+
+/* ---------- ব্যান্ড: গ্রিড দিয়ে ভাগ — টেবিল আর একটার ওপর আরেকটা পড়বে না ---------- */
+
+.mcs-band {
+  display: grid;
+  gap: 22px;
+  align-items: start;
+  width: 100%;
+  margin-top: 24px;
+}
+.mcs-band.band2 { grid-template-columns: 22% 1fr; }
+.mcs-band.band3 { grid-template-columns: 16% 1.35fr 1fr; }
+
+.mcs-band > .mcs-table {
+  width: 100%;
+  flex: none;
+  table-layout: auto;
+}
+.mcs-band > .mcs-table.narrow { width: 100%; }
+
+/* উল্লম্ব দিকে কিছু কাটা যাবে না */
+.mcs-scroll { overflow-y: visible; }
+
+/* মোবাইলেও একই সাজ — শুধু zoom দিয়ে ছোট করা হয় */
+
+/* ---------- সিট পেজের ফিল্টার বার সব সময় দেখা যাবে ---------- */
+
+.sheet-page .filters {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fffffff2;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px #10182814;
+}
+.main { padding-top: 14px; }
+
+/* ---------- মোবাইলেও সিটটা PC-র মতোই ---------- */
+
+@media (max-width: 700px) {
+  .mcs-sheet { padding: 6px; }
+  .mcs-sheet .filters {
+    gap: 8px;
+    padding: 8px;
+  }
+  .mcs-sheet .filters .field { min-width: 120px; }
+  .mcs-sheet .filters .btn { padding: 8px 10px; font-size: 13px; }
+
+  /* ব্যান্ড, কলাম, ফন্ট — সব ডেস্কটপের মতোই, শুধু গোটা সিট ছোট করে দেখানো হয় */
+  .mcs-band.band2 { grid-template-columns: 22% 1fr; }
+  .mcs-band.band3 { grid-template-columns: 16% 1.35fr 1fr; }
+  .mcs-table { font-size: 12px; }
+}
+
+/* ---------- জুম কন্ট্রোল + পিঞ্চ ---------- */
+
+.zoom-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #f8fafc;
+}
+.zoom-btn {
+  min-width: 34px;
+  padding: 6px 8px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+.zoom-btn.wide { font-size: 13px; }
+.zoom-val {
+  min-width: 52px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* জুম করার পর দুই দিকেই টেনে দেখা যাবে।
+   overscroll-behavior: contain দেওয়া ছিল — সেটিই সিটের উপর মাউস থাকলে
+   পেজের উল্লম্ব স্ক্রল আটকে দিচ্ছিল। এখন স্ক্রল পেজে গড়িয়ে যেতে পারে। */
+.mcs-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;   /* শুধু আড়াআড়ি দিকে আটকাই */
+  overscroll-behavior-y: auto;
+}
+
+@media print {
+  .zoom-group { display: none !important; }
+  .mcs-scroll { max-height: none !important; overflow: visible !important; }
+}
+
+/* ---------- Compare ব্যানার: বড় লোগো + বড় হালকা লেখা ---------- */
+
+.cmp-table .banner td {
+  padding: 10px 0 6px;
+  white-space: normal;
+}
+.cmp-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.cmp-banner .bkf-logo.lg {
+  width: 74px;
+  height: 65px;
+}
+.cmp-banner .t1 {
+  font-family: Inter, Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.1;
+  color: #000;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.cmp-banner .t2 {
+  margin-top: 4px;
+  font-family: Inter, Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  color: #000;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media print {
+  .cmp-banner .bkf-logo.lg { width: 56px; height: 49px; }
+  .cmp-banner .t1 { font-size: 30px; }
+  .cmp-banner .t2 { font-size: 13px; }
+}
+
+/* ---------- ক্যালেন্ডার (এক ক্লিকেই বাছাই) ---------- */
+
+.cal-field { position: relative; display: flex; flex-direction: column; gap: 6px; }
+
+.cal-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 190px;
+  padding: 10px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.cal-trigger:hover { border-color: var(--blue); }
+.cal-trigger i { font-style: normal; color: var(--muted); }
+
+.cal-pop {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 268px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 30px #10182826;
+}
+.cal-pop[hidden] { display: none; }
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.cal-nav {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.cal-nav:hover { background: #eef2f7; }
+
+.cal-dows,
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.cal-dows span {
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+.cal-cell {
+  position: relative;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cal-cell.blank { visibility: hidden; }
+.cal-cell:hover { background: #eef2f7; }
+.cal-cell.today { box-shadow: inset 0 0 0 1px var(--blue); }
+.cal-cell.sel { background: var(--blue); color: #fff; font-weight: 700; }
+/* যে দিনের এন্ট্রি আছে তার নিচে সবুজ ফোঁটা */
+.cal-cell.has::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.cal-cell.sel.has::after { background: #fff; }
+
+@media print { .cal-pop { display: none !important; } }
+
+/* ==========================================================================
+   Compare — পিসিতে স্ক্রল ছাড়া, মোবাইলে কার্ড
+   ========================================================================== */
+
+/* ---- পিসি: চওড়া কমিয়ে উচ্চতা বাড়ানো, যাতে এক পর্দাতেই আঁটে ---- */
+
+.cmp-wrap { overflow-x: auto; }
+
+.cmp-table {
+  width: 100%;
+  min-width: 0;            /* আগের ১৫০০px জোরাজুরি বাদ */
+  table-layout: fixed;
+  font-size: 10.5px;
+}
+/* লেখা কেবল শব্দের ফাঁকে ভাঙবে — মাঝখান থেকে কাটবে না */
+.cmp-table th {
+  padding: 4px 3px;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
+  line-height: 1.25;
+}
+.cmp-table td {
+  padding: 4px 3px;
+  white-space: nowrap;     /* সংখ্যা কখনো ভাঙবে না */
+  line-height: 1.3;
+}
+.cmp-table th { font-size: 10px; }
+.cmp-table .c-branch {
+  width: 74px;
+  font-size: 10.5px;
+}
+.cmp-table .h-from,
+.cmp-table .h-to { font-size: 9px; }
+
+/* সংখ্যার ঘরগুলো ডান ঘেঁষা হলে পড়তে সুবিধা */
+.cmp-table tbody td,
+.cmp-table tfoot td { text-align: right; padding-right: 5px; }
+.cmp-table tbody .c-branch,
+.cmp-table tfoot .c-branch { text-align: left; padding-left: 6px; }
+
+@media (min-width: 1500px) {
+  .cmp-table { font-size: 12px; }
+  .cmp-table th { font-size: 11.5px; }
+}
+
+/* ---- মোবাইল: এক টেবিলের বদলে দুই টেবিল, উপরে-নিচে ---- */
+
+.cmp-cards { display: none; }
+
+@media screen and (max-width: 760px) {
+  .cmp-wrap { display: none; }
+
+  .cmp-cards { display: block; margin-top: 12px; }
+
+  .cmp-part { margin-bottom: 18px; overflow-x: auto; }
+  .cmp-part:last-child { margin-bottom: 0; }
+
+  .cmp-table.split {
+    width: 100%;
+    min-width: 0;
+    font-size: 10px;
+  }
+  .cmp-table.split th,
+  .cmp-table.split td { padding: 4px 3px; }
+  .cmp-table.split th { font-size: 9.5px; }
+  .cmp-table.split .c-branch { width: 60px; font-size: 9.5px; }
+  .cmp-table.split .h-from,
+  .cmp-table.split .h-to { font-size: 8.5px; }
+}
+
+@media print {
+  .cmp-cards { display: none !important; }
+  .cmp-wrap { display: block !important; overflow: visible !important; }
+  .cmp-table { font-size: 7.5px; }
+}
+
+/* পিসিতে টেবিল: সংখ্যা অক্ষত, হেডার শব্দের ফাঁকে ভাঙে */
+.cmp-table { table-layout: auto; }
+.cmp-table td { word-break: keep-all; overflow-wrap: normal; }
+.cmp-table thead th { min-width: 0; }
+.cmp-wrap { overflow-x: auto; }
+
+/* ==========================================================================
+   এন্ট্রি তালিকা + অ্যাডমিন
+   ========================================================================== */
+
+.list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.list-table th,
+.list-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+.list-table th {
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+}
+.list-table th:first-child,
+.list-table td.left { text-align: left; }
+.list-table tbody tr:hover { background: #f8fafc; }
+.list-table .empty { text-align: center; color: var(--muted); padding: 18px; }
+
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.mini {
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mini.edit { border-color: #b2ccff; color: var(--blue); }
+.mini.edit:hover { background: #eff4ff; }
+.mini.del { border-color: #fecdca; color: var(--red); }
+.mini.del:hover { background: #fef3f2; }
+
+#entryListCard .section-head { align-items: flex-end; gap: 12px; }
+#entryListCard .actions { display: flex; align-items: flex-end; gap: 10px; }
+
+@media (max-width: 700px) {
+  #entryListCard .table-wrap { overflow-x: auto; }
+}
+
+/* ---- অ্যাডমিন বোতাম ও মডাল ---- */
+
+.admin-fab {
+  position: fixed;
+  z-index: 70;
+  right: 14px;
+  bottom: 86px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 14px #1018281f;
+}
+.admin-fab:hover { background: #f8fafc; }
+body.admin-on .admin-fab {
+  border-color: var(--green);
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+
+.modal {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: #10182899;
+}
+.modal[hidden] { display: none; }
+.modal-box {
+  width: 100%;
+  max-width: 340px;
+  padding: 20px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 20px 50px #10182840;
+}
+.modal-box h3 { margin: 0 0 4px; font-size: 18px; }
+.modal-box .muted-note { margin: 0 0 14px; color: var(--muted); font-size: 12.5px; }
+.modal-box input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 15px;
+}
+.modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+.modal-actions .btn { flex: 1; }
+
+@media print { .admin-fab, .modal { display: none !important; } }
+@media (max-width: 700px) { .admin-fab { bottom: 92px; right: 10px; } }
+
+/* ==========================================================================
+   সব টেবিল: হেডার লেখা ভেঙে (wrap) কলাম সরু হবে, সংখ্যা এক লাইনেই থাকবে
+   ফলে স্ক্রল কম লাগে। প্রিন্টের হিসাব আগের মতোই — সে নিজের মাপ নিজে নেয়।
+   ========================================================================== */
+
+.mcs-table,
+.list-table { table-layout: auto; }
+
+/* হেডার: শব্দের ফাঁকে ভাঙবে, মাঝখান থেকে কাটবে না */
+.mcs-table th,
+.list-table th,
+.cmp-table th {
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  hyphens: none;
+  line-height: 1.18;
+}
+
+/* ঘরের সংখ্যা কখনো ভাঙবে না */
+.mcs-table td,
+.list-table td,
+.cmp-table td {
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+/* হেডার যেন অকারণে চওড়া না নেয় */
+.mcs-table th { min-width: 0; max-width: 90px; }
+.mcs-table th.tiny { max-width: 62px; }
+.mcs-table .b-name,
+.mcs-table th:first-child { max-width: 88px; }
+
+.list-table th { max-width: 92px; }
+
+@media (max-width: 760px) {
+  .mcs-table th { max-width: 76px; }
+}
+
+/* প্রিন্টে কোনো সীমা নয় — শিট আগের মতোই এক পাতায় বসবে */
+@media print {
+  .mcs-table th { max-width: none; }
+}
+
+/* ==========================================================================
+   Month Closing — মোবাইলে টেবিলই থাকবে, তবে পড়ার মতো বড়
+   ছয়টা টেবিল উপর-নিচে, প্রতিটার নিজের স্ক্রল, শাখার কলাম আটকানো
+   ========================================================================== */
+
+@media screen and (max-width: 760px) {
+  .mcs-sheet { padding: 8px 6px; }
+
+  .mcs-scroll {
+    overflow: visible;        /* পুরো সিটের একটামাত্র স্ক্রল নয় */
+    width: auto;
+  }
+  .mcs-doc {
+    display: block;
+    width: auto;
+    min-width: 0;
+    zoom: 1 !important;       /* ছোট করে ঠেসে দেওয়া বন্ধ */
+  }
+
+  /* ব্যান্ড ভেঙে একটার নিচে আরেকটা */
+  .mcs-band,
+  .mcs-band.band2,
+  .mcs-band.band3 {
+    display: block;
+    margin-top: 0;
+  }
+
+  /* প্রতিটা টেবিল নিজের মতো করে ডানে-বাঁয়ে স্ক্রল হবে */
+  .mcs-doc .mcs-table {
+    display: block;
+    width: 100%;
+    margin: 0 0 18px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mcs-doc .mcs-table:last-child { margin-bottom: 0; }
+
+  .mcs-doc .mcs-table th,
+  .mcs-doc .mcs-table td {
+    padding: 7px 8px;
+    max-width: none;
+  }
+  .mcs-doc .mcs-table th { font-size: 11.5px; line-height: 1.2; }
+
+  /* শাখার কলাম বাঁয়ে আটকে থাকবে — ডানে স্ক্রল করলেও নাম দেখা যাবে */
+  .mcs-doc .mcs-table th:first-child,
+  .mcs-doc .mcs-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: #fff;
+    box-shadow: 1px 0 0 #000;
+  }
+  .mcs-doc .mcs-table thead th:first-child { z-index: 4; background: #fff; }
+  .mcs-doc .mcs-table tfoot td:first-child { background: #fde9b3; }
+  #tblMain tfoot td:first-child { background: #fff; }
+
+  /* শিরোনাম ছোট করে জায়গা বাঁচাই */
+  .mcs-h1 { font-size: 20px; }
+  .mcs-h2 { font-size: 17px; }
+  .mcs-meta { font-size: 12px; }
+  .mcs-meta .m-month { width: auto; }
+  .mcs-meta .m-area { width: auto; }
+}
+
+/* প্রিন্টে মোবাইলের এই নিয়মগুলো খাটবে না */
+@media print {
+  .mcs-doc .mcs-table { display: table; overflow: visible !important; margin: 0; }
+  .mcs-doc .mcs-table th:first-child,
+  .mcs-doc .mcs-table td:first-child { position: static; box-shadow: none; }
+  .mcs-band.band2 { display: grid; grid-template-columns: 22% 1fr; }
+  .mcs-band.band3 { display: grid; grid-template-columns: 16% 1.35fr 1fr; }
+}
+
+/* ---------- Daily / Month Closing বাটন দুটো সব সময় উপরে আটকে থাকবে ---------- */
+
+.form-switch {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  background: #fffffff5;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px #1018281f;
+}
+
+@media (max-width: 700px) {
+  .form-switch {
+    margin-left: -10px;
+    margin-right: -10px;
+    border-radius: 0;
+    padding: 6px 10px;
+  }
+}
+
+@media print { .form-switch { display: none !important; } }
+
+/* sticky ঠিকমতো কাজ করতে পূর্বপুরুষ কোনো এলিমেন্টে overflow থাকা চলবে না */
+html, body { overflow-x: clip; }
+.app, .main, #entryPage, .sheet-page { overflow: visible; }
+.form-switch { position: sticky !important; top: 0; z-index: 45; }
+.sheet-page .filters { position: sticky; top: 0; z-index: 30; }
+
+/* ==========================================================================
+   থিম — প্রিমিয়াম ব্যাকগ্রাউন্ড ও বিস্কিট রঙের এন্ট্রি ঘর
+   ========================================================================== */
+
+body {
+  background:
+    radial-gradient(1200px 600px at 8% -10%, #fdf6e7 0%, transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, #e7eefc 0%, transparent 55%),
+    linear-gradient(168deg, #f3f0e9 0%, #eef1f7 45%, #e8edf6 100%);
+  background-attachment: fixed;
+}
+
+/* কার্ডগুলো সামান্য উষ্ণ সাদা, নরম ছায়া — জমিন থেকে আলাদা হয়ে ফুটে ওঠে */
+.card {
+  background: #fffdf9;
+  border: 1px solid #e8e2d6;
+  box-shadow: 0 1px 2px #1018280f, 0 8px 24px #1018280a;
+}
+
+/* ---- এন্ট্রি ঘর: বিস্কিট রঙ ---- */
+
+.entry-grid .field input,
+.entry-grid .field select {
+  background: #f6e7c9;
+  border: 1px solid #d9c49a;
+  color: #241a0c;
+  font-weight: 600;
+}
+.entry-grid .field input::placeholder { color: #a08e6f; }
+.entry-grid .field input:hover,
+.entry-grid .field select:hover { background: #f9eed8; }
+.entry-grid .field input:focus,
+.entry-grid .field select:focus {
+  background: #fdf6e7;
+  border-color: #b8934f;
+  outline: 2px solid #e3c98c;
+}
+
+/* ---- ঘরের নাম: গাঢ় ---- */
+
+.entry-grid .field > span {
+  color: #1b2430;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: .1px;
+}
+.entry-grid .field.required > span::after { color: #b42318; }
+
+/* গ্রুপের শিরোনাম আরও স্পষ্ট */
+.entry-grid .group-head {
+  color: #0b2c6f;
+  font-weight: 800;
+  border-bottom: 1px solid #e0d7c4;
+}
+
+/* ---------- ফর্মের গ্রুপ শিরোনাম — রঙিন ব্যানার ---------- */
+
+.entry-grid .group-head {
+  grid-column: 1 / -1;
+  margin: 18px 0 10px;
+  padding: 9px 14px 9px 12px;
+  border: 0;
+  border-left: 5px solid #d4a53a;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #0b2c6f 0%, #1a56b8 55%, #2f7fe0 100%);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  text-shadow: 0 1px 1px #0b1f4a55;
+  box-shadow: 0 2px 8px #0b2c6f2e;
+}
+.entry-grid .group-head:first-child { margin-top: 2px; }
+
+@media (max-width: 620px) {
+  .entry-grid .group-head {
+    margin: 14px 0 8px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+  }
+}
+
+/* ==========================================================================
+   Month Closing এন্ট্রি ফর্ম — পিসিতে এক পর্দায় আঁটানোর জন্য ঘন সাজ
+   (ফোন/ট্যাবে আগের মতোই ৩ কলাম, কিছু বদলায় না)
+   ========================================================================== */
+
+@media (min-width: 1100px) {
+  #closingFormCard { padding: 14px 16px; }
+  #closingFormCard .section-head { margin-bottom: 8px; }
+  #closingFormCard .section-head h2 { font-size: 16px; }
+
+  #closingFormCard .entry-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: 10px;
+    row-gap: 7px;
+  }
+
+  #closingFormCard .field { gap: 2px; }
+  #closingFormCard .field > span {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #closingFormCard .field input,
+  #closingFormCard .field select {
+    padding: 5px 8px;
+    font-size: 12.5px;
+    border-radius: 6px;
+  }
+
+  /* গ্রুপ ব্যানার পাতলা */
+  #closingFormCard .entry-grid .group-head {
+    margin: 8px 0 3px;
+    padding: 5px 10px 5px 9px;
+    border-left-width: 4px;
+    border-radius: 6px;
+    font-size: 12px;
+    box-shadow: none;
+  }
+  #closingFormCard .entry-grid .group-head:first-child { margin-top: 0; }
+
+  #closingFormCard .form-actions { margin-top: 10px; }
+  #closingFormCard .form-actions .btn { padding: 7px 14px; font-size: 13px; }
+}
+
+@media (min-width: 1500px) {
+  #closingFormCard .entry-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  #closingFormCard .field > span { font-size: 11.5px; }
+}
+
+/* গ্রুপ ব্যানার লেখার মাপেই থাকবে — পুরো সারি জুড়ে নয়
+   (সারি ভাঙার জন্য grid-column 1/-1 রাখা হয়েছে, শুধু দেখানোর প্রস্থ ছোট) */
+.entry-grid .group-head {
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+}
+
+/* ==========================================================================
+   এন্ট্রি ফর্মের সারি সংখ্যা
+   ক্লোজিং : পিসিতে প্রতি গ্রুপ এক লাইনে (সর্বোচ্চ ১০ ঘর) · মোবাইলে ৪টি করে
+   ডেইলি   : পিসিতে ২ লাইন (৭ কলাম) · মোবাইলে ৪ লাইন (৪ কলাম)
+   ========================================================================== */
+
+/* ---- মোবাইল/ট্যাব: দুই ফর্মেই এক লাইনে ৪টি ---- */
+.entry-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 8px;
+  row-gap: 8px;
+}
+.entry-grid .field > span {
+  font-size: 10.5px;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.entry-grid .field input,
+.entry-grid .field select {
+  padding: 6px 7px;
+  font-size: 12.5px;
+}
+.entry-grid .field.wide { grid-column: span 2; }
+
+@media (max-width: 420px) {
+  .entry-grid { column-gap: 6px; row-gap: 6px; }
+  .entry-grid .field > span { font-size: 9.5px; }
+  .entry-grid .field input,
+  .entry-grid .field select { padding: 5px 5px; font-size: 11.5px; }
+}
+
+/* ---- পিসি ---- */
+@media (min-width: 1100px) {
+  /* ক্লোজিং: ১০ কলাম → প্রতিটি গ্রুপ এক লাইনেই শেষ */
+  #closingFormCard .entry-grid {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    column-gap: 8px;
+    row-gap: 6px;
+  }
+  #closingFormCard .entry-grid .field.wide { grid-column: span 2; }
+
+  /* ডেইলি: ৭ কলাম → ১৩টি ঘর ঠিক ২ লাইনে */
+  #dailyFormCard .entry-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    column-gap: 10px;
+    row-gap: 8px;
+  }
+
+  #closingFormCard .field > span,
+  #dailyFormCard .field > span {
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  #closingFormCard .field input,
+  #closingFormCard .field select,
+  #dailyFormCard .field input,
+  #dailyFormCard .field select {
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 1600px) {
+  #closingFormCard .field > span,
+  #dailyFormCard .field > span { font-size: 11.5px; }
+  #closingFormCard .field input,
+  #closingFormCard .field select,
+  #dailyFormCard .field input,
+  #dailyFormCard .field select { padding: 6px 8px; font-size: 13px; }
+}
+
+/* ==========================================================================
+   ঘরের নাম পুরোটা দেখা যাবে — কাটা পড়বে না, দরকারে কয়েক লাইনে বসবে
+   ========================================================================== */
+
+.entry-grid { align-items: end; }   /* লেবেল যত লাইনই হোক, ইনপুটগুলো এক সারিতে */
+
+.entry-grid .field > span,
+#closingFormCard .field > span,
+#dailyFormCard .field > span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  hyphens: none;
+  line-height: 1.2;
+}
+
+/* গ্রুপ ব্যানারও পুরোটা দেখাবে */
+.entry-grid .group-head { white-space: normal; }
+
+@media (min-width: 1100px) {
+  #closingFormCard .field > span,
+  #dailyFormCard .field > span { font-size: 11px; }
+}
+
+/* ==========================================================================
+   ডেইলি এন্ট্রি ফর্ম — টেবিল আকারে
+   (Month Closing ফর্ম আগের মতোই কার্ড/গ্রিড সাজে থাকবে)
+   ========================================================================== */
+
+#dailyFormCard .entry-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+#dailyFormCard .entry-top .field { min-width: 170px; }
+#dailyFormCard .entry-top .field.wide { min-width: 230px; }
+#dailyFormCard .entry-top .field > span { font-size: 11.5px; font-weight: 800; color: #1b2430; }
+#dailyFormCard .entry-top input,
+#dailyFormCard .entry-top select {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid #d9c49a;
+  border-radius: 7px;
+  background: #f6e7c9;
+  color: #241a0c;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* দুই টেবিলের মাঝে ফাঁক */
+.entry-table {
+  width: 100%;
+  margin-bottom: 14px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.entry-table:last-of-type { margin-bottom: 0; }
+
+.entry-table th,
+.entry-table td {
+  border: 1px solid #cfd8e6;
+  padding: 0;
+  text-align: center;
+}
+
+/* হেডারের আলাদা রং — নরম নীল */
+.entry-table tr.hrow th {
+  padding: 7px 6px;
+  background: linear-gradient(180deg, #e8f0fe 0%, #d8e6fb 100%);
+  border-color: #b9cdea;
+  color: #0b2c6f;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: normal;
+  word-break: keep-all;
+}
+
+.entry-table tr.irow input {
+  width: 100%;
+  padding: 9px 8px;
+  border: 0;
+  background: #f6e7c9;
+  color: #241a0c;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+}
+.entry-table tr.irow input:focus {
+  background: #fdf6e7;
+  outline: 2px solid #e3c98c;
+  outline-offset: -2px;
+}
+
+@media (max-width: 760px) {
+  .entry-table tr.hrow th { padding: 5px 4px; font-size: 10px; }
+  .entry-table tr.irow input { padding: 7px 5px; font-size: 12.5px; }
+  #dailyFormCard .entry-top .field { min-width: 140px; flex: 1; }
+}
+
+/* ---------- সংখ্যার ঘরে উপর-নিচের তীর চিহ্ন থাকবে না ---------- */
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* কি-বোর্ড দিয়ে যে ঘরে আছেন সেটা স্পষ্ট বোঝাতে */
+.entry-table tr.irow input:focus,
+.entry-grid .field input:focus,
+#dailyFormCard .entry-top input:focus,
+#dailyFormCard .entry-top select:focus {
+  box-shadow: 0 0 0 2px #b8934f55;
+}
+
+/* ক্লোজিং তালিকা অনেক চওড়া — নিজের স্ক্রল ও আটকানো শাখা কলাম */
+#entryListCard .table-wrap { overflow-x: auto; }
+#tblClosingList { min-width: max-content; }
+#tblClosingList th:first-child,
+#tblClosingList td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fffdf9;
+  box-shadow: 1px 0 0 var(--border);
+}
+#tblClosingList thead th:first-child { background: #f3ece0; }
+#tblClosingList th { font-size: 10.5px; max-width: 110px; white-space: normal; }
+
+/* ==========================================================================
+   Compare — শাখার কলাম সব সময় দেখা যাবে
+   ========================================================================== */
+
+.cmp-table th:first-child,
+.cmp-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #fff;
+  box-shadow: 1px 0 0 #000;
+}
+.cmp-table thead th:first-child { z-index: 4; background: #fff; }
+.cmp-table tbody tr:first-child td.c-branch { background: #cfe7d8; }
+.cmp-table tfoot td:first-child { background: #fff; }
+
+/* মোবাইলের দুই ভাগ করা টেবিলেও একই */
+.cmp-table.split th:first-child,
+.cmp-table.split td:first-child { position: sticky; left: 0; }
+
+/* ==========================================================================
+   Compare প্রিন্ট — A4 ল্যান্ডস্কেপ, এক পাতায় পুরো জায়গা জুড়ে
+   ========================================================================== */
+
+@media print {
+  @page { size: A4 landscape; margin: 0.3in; }
+
+  /* শুধু Compare পেজটাই ছাপা হবে */
+  body.printing-cmp #entryPage,
+  body.printing-cmp #closingPage { display: none !important; }
+
+  body.printing-cmp #comparePage {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+  }
+
+  body.printing-cmp .cmp-wrap {
+    overflow: visible !important;
+    width: auto !important;
+  }
+  body.printing-cmp .cmp-cards { display: none !important; }
+  body.printing-cmp .cmp-table { display: table !important; }
+
+  /* আটকানো কলামের ছায়া ছাপায় দরকার নেই */
+  .cmp-table th:first-child,
+  .cmp-table td:first-child { position: static; box-shadow: none; }
+
+  /* রং সহ ছাপা */
+  .cmp-table td,
+  .cmp-table th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body.printing-cmp .cmp-table,
+  body.printing-cmp .cmp-doc { page-break-inside: avoid; break-inside: avoid; }
+}
+
+/* Compare প্রিন্ট — মাঝ বরাবর ও উচ্চতা ভরাট */
+@media print {
+  body.printing-cmp #comparePage {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  body.printing-cmp .cmp-wrap {
+    display: block;
+    margin: 0 auto;
+    text-align: center;
+  }
+  body.printing-cmp .cmp-table {
+    margin: 0 auto !important;   /* চওড়া স্ক্রিপ্ট থেকে পিক্সেলে বসানো */
+  }
+  /* সারির উচ্চতা স্ক্রিপ্ট থেকে বসানো হয় — ভিত্তি প্যাডিং পর্দার সমান */
+  body.printing-cmp .cmp-table td {
+    padding-top: calc(var(--cmp-base-td, 4px) + var(--cmp-pad, 0px));
+    padding-bottom: calc(var(--cmp-base-td, 4px) + var(--cmp-pad, 0px));
+  }
+  body.printing-cmp .cmp-table th {
+    padding-top: calc(var(--cmp-base-th, 4px) + var(--cmp-pad, 0px));
+    padding-bottom: calc(var(--cmp-base-th, 4px) + var(--cmp-pad, 0px));
+  }
+  body.printing-cmp .cmp-table .banner td,
+  body.printing-cmp .cmp-table .banner2 td {
+    padding-top: 6px;
+    padding-bottom: 4px;
+  }
+}
+
+/* ==========================================================================
+   Compare — কোনো রং নয়, সাদা জমিনে কালো বর্ডার
+   ========================================================================== */
+
+.cmp-table .c-from,
+.cmp-table .c-to,
+.cmp-table .c-yellow,
+.cmp-table .c-blue2,
+.cmp-table .c-delta,
+.cmp-table .c-delta.neg,
+.cmp-table .c-delta.pos,
+.cmp-table tbody tr:first-child .c-branch,
+.cmp-table tbody td,
+.cmp-table tfoot td,
+.cmp-table thead th,
+.cmp-table .h-from,
+.cmp-table .h-to,
+.cmp-table th:first-child,
+.cmp-table td:first-child {
+  background: #fff !important;
+  color: #000 !important;
+}
+
+/* হেডারের তারিখ দুটোও সাধারণ কালো */
+.cmp-table .h-to { color: #000 !important; }
+
+/* মোবাইলের দুই ভাগ করা টেবিলেও একই */
+.cmp-table.split td,
+.cmp-table.split th { background: #fff !important; color: #000 !important; }
+
+@media print {
+  .cmp-table td,
+  .cmp-table th { background: #fff !important; color: #000 !important; }
+}
+
+/* প্রিন্টে সিটের বাক্স ঠিক মাপা অবস্থাতেই থাকবে */
+@media print {
+  body.printing .mcs-doc { width: auto; }
+  .mcs-sheet { height: auto !important; }
+  html, body { height: auto !important; }
+}
+
+/* ---------- Compare — সারির উচ্চতা কম ---------- */
+
+.cmp-table td {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  line-height: 1.15;
+}
+.cmp-table th {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  line-height: 1.1;
+}
+.cmp-table .banner td { padding: 4px 0 2px; }
+.cmp-table .b-meta { padding-top: 2px; padding-bottom: 2px; }
+.cmp-table.split td,
+.cmp-table.split th { padding-top: 3px; padding-bottom: 3px; }
+
+/* Compare প্রিন্ট — উপরে একটু ফাঁক */
+@media print {
+  body.printing-cmp #comparePage { padding-top: 34px !important; }
+}
+
+/* ==========================================================================
+   এন্ট্রি পেজ — পিসিতে একটু ছোট ও পরিপাটি (মোবাইলে অপরিবর্তিত)
+   ========================================================================== */
+
+@media (min-width: 1100px) {
+  #entryPage .top { margin-bottom: 12px; }
+  #entryPage .title.with-logo { gap: 11px; }
+  #entryPage .title h1 { font-size: 21px; }
+  #entryPage .title p { font-size: 12px; }
+  #entryPage .bkf-logo.lg { width: 44px; height: 39px; }
+  #entryPage .badge { font-size: 11px; padding: 4px 9px; }
+
+  /* ফর্ম বাছাইয়ের বার */
+  #entryPage .form-switch { margin-bottom: 12px; padding: 4px; }
+  #entryPage .switch-btn { padding: 8px 14px; font-size: 13px; }
+
+  /* কার্ড */
+  #entryPage .card.section { padding: 13px 15px; margin-bottom: 12px; }
+  #entryPage .section-head { margin-bottom: 9px; }
+  #entryPage .section-head h2 { font-size: 15px; }
+
+  /* তারিখ ও শাখা */
+  #dailyFormCard .entry-top { gap: 10px; margin-bottom: 10px; }
+  #dailyFormCard .entry-top .field { min-width: 150px; }
+  #dailyFormCard .entry-top .field.wide { min-width: 200px; }
+  #dailyFormCard .entry-top input,
+  #dailyFormCard .entry-top select { padding: 5px 8px; font-size: 12.5px; }
+
+  /* ডেইলি টেবিল */
+  .entry-table { margin-bottom: 10px; }
+  .entry-table tr.hrow th { padding: 5px 5px; font-size: 11px; }
+  .entry-table tr.irow input { padding: 6px 7px; font-size: 13px; }
+
+  /* বাটন */
+  #entryPage .form-actions { margin-top: 10px; gap: 7px; }
+  #entryPage .form-actions .btn { padding: 6px 13px; font-size: 12.5px; min-width: 84px; }
+  #entryPage .form-note { font-size: 11px; }
+
+  /* নিচের তালিকা */
+  #entryListCard .list-table th { padding: 5px 6px; font-size: 10.5px; }
+  #entryListCard .list-table td { padding: 5px 6px; font-size: 11.5px; }
+  #entryListCard .mini { padding: 3px 8px; font-size: 10.5px; }
+  #entryListCard .cal-trigger { padding: 6px 10px; font-size: 12.5px; min-width: 160px; }
+}
+
+/* ==========================================================================
+   এন্ট্রি পেজ — পিসিতে দুই পাশ থেকে গুটিয়ে মাঝ বরাবর (standard চেহারা)
+   ========================================================================== */
+
+@media (min-width: 1100px) {
+  #entryPage {
+    max-width: 1150px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (min-width: 1500px) {
+  #entryPage { max-width: 1280px; }
+}
+
+/* ---------- পিসিতে এন্ট্রি ঘরের উচ্চতা একটু বেশি ---------- */
+
+@media (min-width: 1100px) {
+  /* ডেইলি টেবিলের ঘর */
+  .entry-table tr.irow input {
+    padding: 11px 8px;
+    font-size: 14px;
+  }
+  .entry-table tr.hrow th { padding: 7px 6px; }
+
+  /* তারিখ ও শাখা */
+  #dailyFormCard .entry-top input,
+  #dailyFormCard .entry-top select {
+    padding: 9px 10px;
+    font-size: 13.5px;
+  }
+
+  /* Month Closing ফর্মের ঘর */
+  #closingFormCard .field input,
+  #closingFormCard .field select {
+    padding: 9px 7px;
+    font-size: 13px;
+  }
+}
+
+/* ==========================================================================
+   Daily / Month Closing বার ও নিচের মেনু — বড় লেখা, রঙিন জমিন (সাদা নয়)
+   ========================================================================== */
+
+.form-switch {
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid #c7d6f0;
+  background: linear-gradient(180deg, #e9f0fc 0%, #dde8fa 100%) !important;
+  box-shadow: 0 2px 10px #0b2c6f1f;
+}
+
+/* নিষ্ক্রিয় বাটনও রঙিন */
+.switch-btn {
+  padding: 11px 16px;
+  border-radius: 8px;
+  background: #cfdff7;
+  color: #0b2c6f;
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+.switch-btn:hover { background: #bcd3f4; color: #08245c; }
+
+/* চালু বাটন — গাঢ় নীল, সাদা লেখা */
+.switch-btn.active,
+.switch-btn.active:hover {
+  background: linear-gradient(135deg, #0b2c6f, #1a56b8 55%, #2f7fe0);
+  color: #fff;
+  box-shadow: 0 3px 10px #0b2c6f55;
+}
+
+@media (min-width: 1100px) {
+  #entryPage .switch-btn { padding: 10px 16px; font-size: 15px; }
+}
+
+/* ---------- নিচের মেনু ---------- */
+
+.bottom-nav .nav {
+  padding: 10px 6px;
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+.bottom-nav .nav i { font-size: 19px; }
+
+/* চালু পেজ — সোনালি পিল, গাঢ় নীল লেখা (সাদা জমিন নয়) */
+.bottom-nav .nav.active,
+.bottom-nav .nav.active:hover {
+  background: linear-gradient(135deg, #f7d070, #e0a81f);
+  color: #0b2c6f;
+  text-shadow: none;
+  box-shadow: 0 2px 10px #00000033;
+}
+.bottom-nav .nav.active i { color: #0b2c6f; }
+
+/* নিষ্ক্রিয়গুলোর লেখা আরও স্পষ্ট */
+.bottom-nav .nav { color: #e3ecff; }
+.bottom-nav .nav:hover { background: #ffffff26; color: #fff; }
+
+@media (max-width: 550px) {
+  .switch-btn { font-size: 13.5px; padding: 10px 8px; }
+  .bottom-nav .nav { font-size: 12.5px; }
+}
+
+/* ==========================================================================
+   চলমান নোটিশ বার
+   ========================================================================== */
+
+.notice-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 7px 10px;
+  border: 1px solid #c7d6f0;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #0b2c6f 0%, #1a56b8 100%);
+  overflow: hidden;
+  box-shadow: 0 2px 8px #0b2c6f24;
+}
+.notice-bar.empty { opacity: .65; }
+
+.notice-tag {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: #f7d070;
+  color: #0b2c6f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.notice-track {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.notice-track span {
+  display: inline-block;
+  padding-left: 100%;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  animation: notice-slide 20s linear infinite;
+}
+.notice-bar:hover .notice-track span { animation-play-state: paused; }
+
+@keyframes notice-slide {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+body.admin-on .notice-bar { cursor: pointer; outline: 2px dashed #f7d070; outline-offset: 2px; }
+
+@media print { .notice-bar { display: none !important; } }
+
+/* ==========================================================================
+   অ্যাডমিন — টেবিলের ঘরে সরাসরি সম্পাদনা
+   ========================================================================== */
+
+body.admin-on td[data-e] {
+  cursor: cell;
+  box-shadow: inset 0 0 0 1px #d4a53a80;
+}
+body.admin-on td[data-e]:hover { background: #fff7d6 !important; }
+
+.cell-edit {
+  width: 100%;
+  min-width: 60px;
+  padding: 3px 4px;
+  border: 2px solid #155eef;
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  text-align: right;
+}
+.saving { color: var(--muted); font-size: 11px; }
+
+/* ==========================================================================
+   অ্যাডমিনের ভিজিটর পরিসংখ্যান
+   ========================================================================== */
+
+.admin-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #cfe0c8;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f2fbf4 0%, #eaf4ff 100%);
+  box-shadow: 0 1px 3px #1018281a;
+}
+.admin-stats[hidden] { display: none; }
+
+.admin-stats .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 96px;
+  padding: 7px 12px;
+  border: 1px solid #e0e6ef;
+  border-radius: 9px;
+  background: #fff;
+}
+.admin-stats .stat b { font-size: 19px; font-weight: 800; color: #0b2c6f; line-height: 1.1; }
+.admin-stats .stat span { color: var(--muted); font-size: 11px; font-weight: 700; }
+
+/* এখন অনলাইনে — সবুজ, জ্বলজ্বলে বিন্দু সহ */
+.admin-stats .stat.live { border-color: #a6e3bd; background: #ecfdf3; }
+.admin-stats .stat.live b { color: #027a48; }
+.admin-stats .stat.live b::before {
+  content: "●";
+  margin-right: 5px;
+  color: #12b76a;
+  font-size: 12px;
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+.admin-stats .btn { align-self: center; padding: 6px 11px; font-size: 13px; }
+
+@media (max-width: 700px) {
+  .admin-stats .stat { min-width: calc(50% - 4px); flex: 1; }
+}
+@media print { .admin-stats { display: none !important; } }
+
+/* ---------- Compare — পর্দায় সারির উচ্চতা বাড়ানো ---------- */
+
+@media screen {
+  .cmp-table td {
+    padding-top: 9px;
+    padding-bottom: 9px;
+    line-height: 1.3;
+  }
+  .cmp-table th {
+    padding-top: 7px;
+    padding-bottom: 7px;
+    line-height: 1.2;
+  }
+  .cmp-table tbody td,
+  .cmp-table tfoot td { font-size: 11.5px; }
+
+  @media (min-width: 1100px) {
+    .cmp-table td { padding-top: 12px; padding-bottom: 12px; }
+    .cmp-table th { padding-top: 8px; padding-bottom: 8px; }
+    .cmp-table tbody td,
+    .cmp-table tfoot td { font-size: 12px; }
+  }
+
+  .cmp-table.split td { padding-top: 7px; padding-bottom: 7px; }
+}
+
+/* সিটের উপর মাউস/আঙুল থাকলেও পেজ উপর-নিচে স্ক্রল হবে */
+.mcs-scroll,
+.mcs-doc,
+.mcs-sheet {
+  overscroll-behavior-y: auto;
+}
+@media screen and (max-width: 760px) {
+  .mcs-doc .mcs-table { overscroll-behavior-y: auto; touch-action: pan-x pan-y; }
+}
+
+/* ==========================================================================
+   Month Closing — কোনো রং নয়, সাদা জমিনে কালো বর্ডার
+   ========================================================================== */
+
+.mcs-table td,
+.mcs-table th,
+.mcs-table td.hl,
+.mcs-table tr.hl td,
+.mcs-table tfoot td,
+#tblMain tfoot td,
+#tblMain tfoot td.hl,
+.mcs-table thead th,
+.mcs-table .b-name,
+.mcs-doc .mcs-table th:first-child,
+.mcs-doc .mcs-table td:first-child,
+.mcs-doc .mcs-table tfoot td:first-child {
+  background: #fff !important;
+  color: #000 !important;
+}
+
+.mcs-meta td { background: #fff !important; color: #000 !important; }
+
+@media print {
+  .mcs-table td,
+  .mcs-table th { background: #fff !important; color: #000 !important; }
+}
+
+/* ==========================================================================
+   লাইভ সংযোগের ব্যাজ — কতজন এখন অনলাইনে
+   ========================================================================== */
+
+.live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  padding: 5px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.live-chip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #98a2b3;
+}
+.live-chip.on {
+  border-color: #a6e3bd;
+  background: #ecfdf3;
+  color: #027a48;
+}
+.live-chip.on i {
+  background: #12b76a;
+  animation: live-pulse 1.8s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .35; transform: scale(.82); }
+}
+
+@media print { .live-chip { display: none !important; } }
+
+/* ---------- কারা অনলাইনে — নামসহ ---------- */
+
+.live-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.live-chip { margin: 0; cursor: pointer; }
+.live-chip:hover { border-color: var(--blue); }
+
+.live-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.live-names b {
+  padding: 3px 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  background: #fff;
+  color: #1d2939;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.live-names b.me {
+  border-color: #a6e3bd;
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+/* পরিচয়ের মডাল */
+.who-field { display: block; margin-bottom: 10px; }
+.who-field > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.who-field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+}
+
+/* অ্যাডমিন প্যানেলে সাম্প্রতিক ভিজিটর */
+.stat-recent { width: 100%; margin-top: 4px; }
+.stat-recent summary {
+  cursor: pointer;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+}
+.stat-recent ul {
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 200px;
+  overflow: auto;
+  list-style: none;
+}
+.stat-recent li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 8px;
+  border-bottom: 1px dashed #e4e7ec;
+  font-size: 12px;
+}
+.stat-recent li span { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+@media print { .live-row { display: none !important; } }
+
+/* ==========================================================================
+   পরিচয়ের ফটক — নাম ও শাখা না দিলে পাতা ব্যবহার করা যাবে না
+   ========================================================================== */
+
+body.locked { overflow: hidden; }
+body.locked .main,
+body.locked .bottom-nav,
+body.locked .admin-fab {
+  filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.who-gate { background: #101828e6; backdrop-filter: blur(3px); }
+.who-gate .modal-box { max-width: 420px; }
+
+.gate-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.gate-head .bkf-logo { width: 42px; height: 37px; }
+.gate-head h3 { margin: 0; font-size: 19px; }
+.gate-head .muted-note { margin: 2px 0 0; }
+
+.gate-msg {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-left: 4px solid #d4a53a;
+  border-radius: 8px;
+  background: #fdf6e7;
+  color: #4a3b23;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.gate-msg b { color: #7a4b00; }
+
+.who-field > span em { color: var(--red); font-style: normal; }
+
+.gate-note {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fef3f2;
+  color: #b42318;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.gate-note[hidden] { display: none; }
+
+.gate-foot {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* পুনরুদ্ধারের তালিকা */
+.stat-recent.history ul { max-height: 240px; }
+.stat-recent.history li { align-items: center; }
+.stat-recent.history li b { font-size: 12px; }
+.stat-recent.history li .mini { margin-left: auto; }

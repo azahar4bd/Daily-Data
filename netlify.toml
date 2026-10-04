@@ -30,3 +30,9 @@
   for = "/index.html"
   [headers.values]
     Cache-Control = "no-cache"
+
+# স্টাইল ও স্ক্রিপ্ট আপডেট হলে ব্রাউজার যেন সঙ্গে সঙ্গে নতুনটা নেয়
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
