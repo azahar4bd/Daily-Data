@@ -658,7 +658,7 @@ body {
 
 .mcs-table {
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 14px;
   background: #fff;
 }
 #tblMain { width: 100%; }
@@ -675,8 +675,8 @@ body {
   text-align: center;
   line-height: 1.15;
 }
-.mcs-table th.tiny { font-size: 9px; }
-.mcs-table td.b-name { text-align: left; font-size: 11px; }
+.mcs-table th.tiny { font-size: 11px; }
+.mcs-table td.b-name { text-align: left; font-size: 13px; }
 .mcs-table tfoot td { font-weight: 700; }
 .mcs-table .empty { text-align: center; padding: 18px; color: var(--muted); }
 
@@ -694,7 +694,7 @@ body {
   gap: 26px;
   margin-top: 22px;
 }
-.mcs-table.narrow { font-size: 11px; }
+.mcs-table.narrow { font-size: 13px; }
 
 .mcs-date-label { margin: 22px 0 -16px 300px; font-size: 13px; }
 
@@ -872,7 +872,7 @@ body.printing .mcs-scroll { overflow: visible !important; }
   /* ব্যান্ড, কলাম, ফন্ট — সব ডেস্কটপের মতোই, শুধু গোটা সিট ছোট করে দেখানো হয় */
   .mcs-band.band2 { grid-template-columns: 22% 1fr; }
   .mcs-band.band3 { grid-template-columns: 16% 1.35fr 1fr; }
-  .mcs-table { font-size: 12px; }
+  .mcs-table { font-size: 14px; }
 }
 
 /* ---------- জুম কন্ট্রোল + পিঞ্চ ---------- */
@@ -1283,11 +1283,21 @@ body.admin-on .admin-fab {
   word-break: keep-all;
 }
 
-/* হেডার যেন অকারণে চওড়া না নেয় */
-.mcs-table th { min-width: 0; max-width: 90px; }
-.mcs-table th.tiny { max-width: 62px; }
+/* হেডার যেন অকারণে চওড়া না নেয় — চাপা হেডারে কলাম সরু হয়, জায়গা বাঁচে
+   (লেখা শুধু শব্দের ফাঁকে নতুন লাইনে যায় — মাঝখান থেকে ভাঙে না) */
+.mcs-table th { min-width: 0; max-width: 82px; }
+.mcs-table th.tiny { max-width: 60px; }
 .mcs-table .b-name,
-.mcs-table th:first-child { max-width: 88px; }
+.mcs-table th:first-child { max-width: 100px; }
+
+/* কলামের লেখা কখনো শব্দের মাঝখান থেকে ভাঙবে না —
+   শুধু শব্দের ফাঁকে (স্পেসে) নতুন লাইনে যেতে পারে */
+.mcs-table th,
+.mcs-table td {
+  overflow-wrap: normal;
+  word-break: keep-all;
+  hyphens: none;
+}
 
 .list-table th { max-width: 92px; }
 
@@ -1801,8 +1811,17 @@ input[type="number"]::-webkit-inner-spin-button {
     overflow: visible !important;
     width: auto !important;
   }
-  body.printing-cmp .cmp-cards { display: none !important; }
-  body.printing-cmp .cmp-table { display: table !important; }
+  /* ছাপায় দুই ভাগের টেবিলই ব্যবহার হয় — ফন্ট বড় রাখা যায় */
+  body.printing-cmp .cmp-wrap { display: none !important; }
+  body.printing-cmp .cmp-cards { display: block !important; margin: 0; }
+  body.printing-cmp .cmp-part { margin: 0 0 14px; overflow: visible !important; }
+  body.printing-cmp .cmp-table.split {
+    display: table !important;
+    margin: 0 auto;
+    font-size: 12px;
+  }
+  body.printing-cmp .cmp-table.split th,
+  body.printing-cmp .cmp-table.split td { padding: 5px 6px; }
 
   /* আটকানো কলামের ছায়া ছাপায় দরকার নেই */
   .cmp-table th:first-child,
@@ -2434,3 +2453,570 @@ body.locked .admin-fab {
 .stat-recent.history li { align-items: center; }
 .stat-recent.history li b { font-size: 12px; }
 .stat-recent.history li .mini { margin-left: auto; }
+
+/* ==========================================================================
+   মোবাইলে তারিখ/মাস ও শাখা — এক লাইনে পাশাপাশি
+   ========================================================================== */
+
+@media screen and (max-width: 760px) {
+  /* ডেইলি ফর্মের উপরের সারি */
+  #dailyFormCard .entry-top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #dailyFormCard .entry-top .field,
+  #dailyFormCard .entry-top .field.wide {
+    min-width: 0;          /* ঘরকে নিজের জায়গার মধ্যেই থাকতে বাধ্য করি */
+    width: auto;
+  }
+  #dailyFormCard .entry-top input,
+  #dailyFormCard .entry-top select {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 6px;
+    font-size: 12.5px;
+  }
+
+  /* ক্লোজিং ফর্মের মাস ও শাখাও একইভাবে */
+  #closingFormCard .entry-grid .field.wide { grid-column: span 2; }
+  #closingFormCard .entry-grid > .field:first-child { grid-column: span 2; }
+}
+
+@media screen and (max-width: 420px) {
+  #dailyFormCard .entry-top { gap: 6px; }
+  #dailyFormCard .entry-top input,
+  #dailyFormCard .entry-top select { padding: 7px 4px; font-size: 11.5px; }
+  #dailyFormCard .entry-top .field > span { font-size: 10.5px; }
+}
+
+/* ---------- তারিখ থেকে তারিখ তুলনা (এন্ট্রি পেজ) ---------- */
+
+#d2dCard .section-head {
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+#d2dCard .actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+#d2dCard .cal-trigger { min-width: 150px; }
+#d2dCard .table-wrap { overflow-x: auto; }
+
+#tblD2D { min-width: 1750px; font-size: 10.5px; }
+#tblD2D th,
+#tblD2D td { padding: 6px 5px; }
+#tblD2D th:first-child,
+#tblD2D td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #fff;
+  box-shadow: 1px 0 0 #000;
+}
+
+@media (max-width: 760px) {
+  #d2dCard .cal-trigger { min-width: 130px; font-size: 12px; padding: 7px 9px; }
+  #tblD2D { font-size: 9px; min-width: 1300px; }
+  #tblD2D th, #tblD2D td { padding: 4px 3px; }
+}
+
+@media print { #d2dCard { display: none !important; } }
+
+/* তারিখ-তুলনা টেবিল: গ্রুপের শেষে হালকা বিভাজক */
+#tblD2D thead tr:first-child th { border-bottom: 1px solid #000; }
+#tblD2D td:nth-child(3n + 1) { border-right: 2px solid #000; }
+#tblD2D th:nth-child(3n + 1) { border-right: 2px solid #000; }
+
+/* তারিখ-তুলনার টীকা */
+.d2d-note {
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eff4ff;
+  color: #0b2c6f;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* Compare প্রিন্ট — ভাগ করা টেবিল বড় ফন্টে */
+@media print {
+
+
+  /* মাপা না গেলে পুরনো উপায় — পুরো টেবিল */
+  body.cmp-print-full .cmp-cards { display: none !important; }
+  body.cmp-print-full .cmp-wrap { display: block !important; }
+}
+
+/* Compare প্রিন্ট — সরু ফন্ট ও কম ফাঁক, তাই অক্ষর বড় রাখা যায় */
+@media print {
+
+}
+
+/* ==========================================================================
+   Compare প্রিন্ট — নির্দিষ্ট বড় ফন্ট, পাতার পুরো চওড়া, কোনো scale নয়
+   ========================================================================== */
+
+@media print {
+  body.printing-cmp .cmp-cards { zoom: 1 !important; }
+
+  body.printing-cmp .cmp-part { margin: 0 0 12px; width: 100%; }
+
+  body.printing-cmp .cmp-table.split {
+    width: 100% !important;
+    table-layout: fixed;
+    font-family: "Arial Narrow", "Liberation Sans Narrow", Arial, sans-serif;
+    font-stretch: condensed;
+    font-size: 15px;
+    letter-spacing: -0.2px;
+  }
+  body.printing-cmp .cmp-table.split th {
+    font-size: 13px;
+    line-height: 1.1;
+    white-space: normal;
+    word-break: keep-all;
+  }
+  body.printing-cmp .cmp-table.split td {
+    font-size: 15px;
+    padding: 6px 3px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  body.printing-cmp .cmp-table.split th { padding: 5px 3px; }
+
+  /* শাখার কলাম একটু চওড়া, বাকিগুলো সমান ভাগে */
+  body.printing-cmp .cmp-table.split th:first-child,
+  body.printing-cmp .cmp-table.split td:first-child { width: 80px; }
+}
+
+/* ==========================================================================
+   Compare ছাপা — এক টেবিল, এক সারিতে সব কলাম, এক্সেল শিটের চেহারা
+
+   স্টাইলগুলো @media print-এর বাইরে রাখা হয়েছে ইচ্ছে করেই:
+   ছাপার আগে এই অংশের আসল চওড়া মাপতে হয়, আর মাপার সময় ছাপার স্টাইল
+   কার্যকর না থাকলে মাপ ভুল আসে — তখন লেখা কেটে যায়।
+   ========================================================================== */
+
+#printArea { display: none; color: #000; }
+
+#printArea .pa-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 2px;
+}
+#printArea .pa-top .bkf-logo { width: 42px; height: 37px; }
+#printArea .pa-t1 { font-size: 20pt; font-family: Arial, Helvetica, sans-serif; }
+#printArea .pa-t2 { font-size: 10pt; text-align: center; }
+#printArea .pa-meta { margin: 4px 0 6px; font-size: 9.5pt; }
+#printArea .pa-meta span { margin-right: 28px; }
+
+/* সব সময় পাতার চওড়ার মধ্যেই থাকবে — তাই কিছু কাটা পড়ার সুযোগ নেই */
+#printArea .pa-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+#printArea .pa-table th,
+#printArea .pa-table td {
+  border: 1px solid #2f5597;
+  /* উচ্চতা বাড়ে, চওড়া নয় — তাই উপর-নিচের ফাঁক বেশি, পাশের ফাঁক কম */
+  padding: 26px 3px;
+  text-align: right;
+  font-size: 11pt;
+  line-height: 1.5;
+  font-family: "Arial Narrow", "Liberation Sans Narrow", Arial, sans-serif;
+  /* সংখ্যা কখনো ভাঙবে না — এক লাইনেই থাকবে */
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  font-variant-numeric: tabular-nums;
+}
+
+#printArea .pa-table th {
+  background: #dce6f1;
+  font-size: 9pt;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.12;
+  white-space: normal;
+  padding: 14px 3px;
+}
+
+#printArea .pa-table td.b,
+#printArea .pa-table th.b {
+  text-align: left;
+  font-size: 10pt;
+  font-weight: 700;
+  background: #eaf1f8;
+}
+#printArea .pa-table tbody tr { height: 74px; }
+#printArea .pa-table tbody tr:first-child td.b { background: #cfe7d8; }
+#printArea .pa-table td.neg { background: #d9d9d9; }
+#printArea .pa-table tfoot td { font-weight: 700; background: #eaf1f8; }
+
+/* মাপ নেওয়ার সময় — পর্দার বাইরে, কিন্তু আসল স্টাইলসহ */
+#printArea.measuring {
+  display: block;
+  position: absolute;
+  left: -99999px;
+  top: 0;
+  width: max-content;
+}
+
+@media print {
+  @page { size: A4 landscape; margin: 6mm; }
+
+  body.print-compare > *:not(#printArea) { display: none !important; }
+  body.print-compare #printArea {
+    display: block !important;
+    position: static;
+    left: auto;
+    width: auto;
+  }
+  #printArea .pa-table th,
+  #printArea .pa-table td,
+  #printArea .pa-table td.b,
+  #printArea .pa-table tfoot td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ==========================================================================
+   Compare টেবিল — পর্দায় সারির উচ্চতা বেশি (চওড়া অপরিবর্তিত)
+   ========================================================================== */
+
+@media screen {
+  .cmp-table tbody td,
+  .cmp-table tfoot td {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 3px;
+    padding-right: 5px;
+    line-height: 1.25;
+  }
+  .cmp-table tbody tr,
+  .cmp-table tfoot tr { height: 26px; }
+
+  .cmp-table thead th {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+
+  /* মোবাইলের দুই ভাগের টেবিলেও একই */
+  .cmp-table.split tbody td { padding-top: 4px; padding-bottom: 4px; }
+  .cmp-table.split tbody tr { height: auto; }
+}
+
+/* ==========================================================================
+   সব টেবিলে সারির উচ্চতা বেশি — চওড়ায় কোনো পরিবর্তন নয়
+   (শুধু padding-top / padding-bottom বাড়ানো হয়েছে, পাশের ফাঁক অপরিবর্তিত)
+   ========================================================================== */
+
+@media screen {
+  /* Compare পেজ */
+  .cmp-table tbody td,
+  .cmp-table tfoot td { padding-top: 24px !important; padding-bottom: 24px !important; }
+  .cmp-table tbody tr, .cmp-table tfoot tr { height: 70px; }
+  .cmp-table thead th { padding-top: 14px !important; padding-bottom: 14px !important; }
+
+  /* এন্ট্রি পেজের তালিকা */
+  .list-table tbody td { padding-top: 18px !important; padding-bottom: 18px !important; }
+  .list-table tbody tr { height: 58px; }
+  .list-table thead th { padding-top: 12px !important; padding-bottom: 12px !important; }
+
+  /* এন্ট্রি পেজের তারিখ-তুলনা টেবিল */
+  #tblD2D tbody td,
+  #tblD2D tfoot td { padding-top: 18px !important; padding-bottom: 18px !important; }
+  #tblD2D tbody tr { height: 58px; }
+  #tblD2D thead th { padding-top: 12px !important; padding-bottom: 12px !important; }
+
+  /* Month Closing শিটের ছয় টেবিল */
+  .mcs-table tbody td,
+  .mcs-table tfoot td { padding-top: 16px !important; padding-bottom: 16px !important; }
+  .mcs-table tbody tr { height: 52px; }
+  .mcs-table thead th { padding-top: 10px !important; padding-bottom: 10px !important; }
+
+  /* ডেইলি এন্ট্রি ফর্মের টেবিল */
+  .entry-table tr.irow input { padding-top: 14px !important; padding-bottom: 14px !important; }
+}
+
+@media print {
+  /* ছাপাতেও একই — উপর-নিচ বাড়ে, পাশ নয় */
+  #printArea .pa-table tbody tr { height: 78px; }
+  .mcs-table tbody td, .mcs-table tfoot td { padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* সারির উচ্চতা আরও বেশি — চওড়া অপরিবর্তিত */
+@media screen {
+  .cmp-table tbody td, .cmp-table tfoot td { padding-top: 34px !important; padding-bottom: 34px !important; }
+  .cmp-table tbody tr, .cmp-table tfoot tr { height: 92px !important; }
+  .cmp-table thead th { padding-top: 18px !important; padding-bottom: 18px !important; }
+
+  .list-table tbody td { padding-top: 26px !important; padding-bottom: 26px !important; }
+  .list-table tbody tr { height: 76px !important; }
+
+  #tblD2D tbody td, #tblD2D tfoot td { padding-top: 26px !important; padding-bottom: 26px !important; }
+  #tblD2D tbody tr { height: 76px !important; }
+
+  .mcs-table tbody td, .mcs-table tfoot td { padding-top: 24px !important; padding-bottom: 24px !important; }
+  .mcs-table tbody tr { height: 70px !important; }
+
+  .entry-table tr.irow input { padding-top: 20px !important; padding-bottom: 20px !important; }
+}
+
+@media print {
+  #printArea .pa-table tbody tr { height: 96px !important; }
+  #printArea .pa-table td { padding-top: 32px !important; padding-bottom: 32px !important; }
+}
+
+/* সারির উচ্চতা — সর্বশেষ বৃদ্ধি (চওড়া অপরিবর্তিত) */
+@media screen {
+  .cmp-table tbody td, .cmp-table tfoot td { padding-top: 46px !important; padding-bottom: 46px !important; }
+  .cmp-table tbody tr, .cmp-table tfoot tr { height: 118px !important; }
+  .list-table tbody td { padding-top: 34px !important; padding-bottom: 34px !important; }
+  .list-table tbody tr { height: 94px !important; }
+  #tblD2D tbody td, #tblD2D tfoot td { padding-top: 34px !important; padding-bottom: 34px !important; }
+  #tblD2D tbody tr { height: 94px !important; }
+  .mcs-table tbody td, .mcs-table tfoot td { padding-top: 32px !important; padding-bottom: 32px !important; }
+  .mcs-table tbody tr { height: 88px !important; }
+  .entry-table tr.irow input { padding-top: 26px !important; padding-bottom: 26px !important; }
+}
+@media print {
+  #printArea .pa-table tbody tr { height: 110px !important; }
+  #printArea .pa-table td { padding-top: 38px !important; padding-bottom: 38px !important; }
+}
+
+/* ==========================================================================
+   সারির উচ্চতা মাপমতো — এক পাতাতেই থাকবে, সংখ্যাও ভাঙবে না
+   (আগের বাড়াবাড়ি মাপগুলো এখানে নামিয়ে আনা হলো)
+   ========================================================================== */
+
+@media screen {
+  .cmp-table tbody td, .cmp-table tfoot td {
+    padding-top: 16px !important; padding-bottom: 16px !important;
+  }
+  .cmp-table tbody tr, .cmp-table tfoot tr { height: 54px !important; }
+  .cmp-table thead th { padding-top: 10px !important; padding-bottom: 10px !important; }
+
+  .list-table tbody td { padding-top: 14px !important; padding-bottom: 14px !important; }
+  .list-table tbody tr { height: 48px !important; }
+
+  #tblD2D tbody td, #tblD2D tfoot td { padding-top: 14px !important; padding-bottom: 14px !important; }
+  #tblD2D tbody tr { height: 48px !important; }
+
+  .mcs-table tbody td, .mcs-table tfoot td { padding-top: 12px !important; padding-bottom: 12px !important; }
+  .mcs-table tbody tr { height: 44px !important; }
+
+  .entry-table tr.irow input { padding-top: 14px !important; padding-bottom: 14px !important; }
+}
+
+@media print {
+  /* ছাপায় সারি উঁচু, তবে এক পাতায় আঁটার মতো */
+  #printArea .pa-table tbody tr { height: 52px !important; }
+  #printArea .pa-table td { padding-top: 14px !important; padding-bottom: 14px !important; }
+  #printArea .pa-table th { padding-top: 8px !important; padding-bottom: 8px !important; }
+}
+
+/* ==========================================================================
+   ছাপার সারি — উঁচু, তবু এক পাতায় (উচ্চতা বেশি হলে ফন্ট ছোট হয়ে যায়,
+   তাই মাঝামাঝি মাপ: সারি ৩৮px, ফন্ট পুরো ১১pt)
+   ========================================================================== */
+
+@media print {
+  #printArea .pa-table tbody tr { height: 38px !important; }
+  #printArea .pa-table td {
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+  }
+  #printArea .pa-table th {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+  #printArea .pa-top { margin-bottom: 0; }
+  #printArea .pa-t1 { font-size: 17pt; }
+  #printArea .pa-t2 { font-size: 9pt; }
+  #printArea .pa-meta { margin: 3px 0 5px; font-size: 9pt; }
+  #printArea .pa-top .bkf-logo { width: 34px; height: 30px; }
+}
+
+/* ==========================================================================
+   ছাপা — কোনো ঘরেই লেখা ভাঙবে না (হেডার সহ), সব এক লাইনে
+   ========================================================================== */
+
+@media print {
+  #printArea .pa-table th,
+  #printArea .pa-table td {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+    hyphens: none !important;
+  }
+  #printArea .pa-table th { line-height: 1.15; padding: 6px 3px !important; }
+  #printArea .pa-table tbody tr { height: 34px !important; }
+  #printArea .pa-table td { padding-top: 7px !important; padding-bottom: 7px !important; }
+}
+
+/* ==========================================================================
+   Month Closing ছাপা — A4 এক পাতায়, পুরো পাতা জুড়ে
+   ========================================================================== */
+
+@media print {
+  @page { size: A4 landscape; margin: 6mm; }
+
+  /* পাতার মাঝ বরাবর */
+  body.printing .mcs-scroll { display: flex; justify-content: center; }
+  body.printing .mcs-doc { margin: 0 auto; }
+
+  /* দ্বিতীয় পাতা ঠেকাতে */
+  body.printing .mcs-sheet,
+  body.printing .mcs-scroll,
+  body.printing .mcs-doc {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    overflow: hidden !important;
+  }
+}
+
+/* ==========================================================================
+   ছাপার মাপ নেওয়ার সময়ও ছাপার চেহারাই থাকবে
+   (@media print-এর বাইরে রাখা — নইলে মাপ ভুল এসে সিট ছোট হয়ে যায়)
+   ========================================================================== */
+
+body.printing .mcs-table tbody tr,
+body.printing .mcs-table tfoot tr { height: auto !important; }
+
+body.printing .mcs-table td,
+body.printing .mcs-table th {
+  padding-top: calc(4px + var(--mcs-pad, 0px)) !important;
+  padding-bottom: calc(4px + var(--mcs-pad, 0px)) !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  line-height: 1.2 !important;
+}
+
+body.printing .mcs-band { margin-top: 10px !important; }
+
+/* ==========================================================================
+   Month Closing ছাপা — সিট সব সময় পাতার পুরো চওড়ায় (মাপজোখ ছাড়াই)
+   ========================================================================== */
+
+body.printing .mcs-doc {
+  width: 100% !important;
+  min-width: 0 !important;
+  zoom: 1 !important;
+  padding: 0 !important;
+}
+
+body.printing .mcs-table {
+  width: 100% !important;
+  table-layout: auto;
+  /* ওয়েবফন্ট — স্ক্রিন ও প্রিন্টে হুবহু একই মাপ, তাই হিসাব কখনো গরমিল হয় না */
+  font-family: "Noto Sans Bengali", Inter, Arial, Helvetica, sans-serif;
+  font-size: 7.5pt !important;
+}
+body.printing .mcs-table th { font-size: 6.5pt !important; }
+body.printing .mcs-table td,
+body.printing .mcs-table th {
+  padding-left: 2px !important;
+  padding-right: 2px !important;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+}
+body.printing .mcs-h1 { font-size: 15pt; }
+body.printing .mcs-h2 { font-size: 12pt; }
+body.printing .mcs-meta { font-size: 8pt; }
+
+/* ব্যান্ডের টেবিলগুলোও পুরো চওড়া ভাগ করে নেবে */
+body.printing .mcs-band { gap: 10px !important; }
+body.printing .mcs-band > .mcs-table { width: 100% !important; }
+
+@media print {
+  body.printing .mcs-scroll { overflow: visible !important; display: block !important; }
+}
+
+/* ==========================================================================
+   ফোন থেকে ছাপা — কাগজ খাড়া থাকে, তাই সিটটাই ৯০° ঘুরিয়ে বসে
+   (ফলে এক পাতাতেই পুরো সিট, কাগজ কাত করে ধরলেই পড়া যায়)
+   ========================================================================== */
+
+@media print {
+  body.rot-print .mcs-scroll {
+    position: relative;
+    width: 748px;
+    height: 1077px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden !important;
+    display: block !important;
+  }
+  body.rot-print .mcs-doc {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max-content !important;
+    transform-origin: center center;
+    transform: translate(-50%, -50%) rotate(90deg) scale(var(--rot-scale, 1));
+  }
+  body.rot-print .mcs-sheet { overflow: hidden !important; }
+  body.rot-print #entryPage,
+  body.rot-print #comparePage { display: none !important; }
+}
+
+/* ==========================================================================
+   বড় টেবিল পর্দায় আঁটানো — পিসিতে জুম-ফিট (স্ক্রল নয়), মোবাইলে দুই ভাগ
+   ========================================================================== */
+
+.d2d-split { display: none; }
+
+@media screen and (max-width: 760px) {
+  /* এন্ট্রি পেজ: চওড়া টেবিলের বদলে দুই ভাগ */
+  #d2dCard .table-wrap { display: none; }
+  .d2d-split { display: block; margin-top: 12px; }
+  .d2d-split .cmp-part { margin-bottom: 14px; }
+
+  /* দুই ভাগ মিলে এক স্ক্রিনে — সারি আর উঁচু নয়, ফাঁকও কম */
+  .cmp-table.split tbody tr,
+  .cmp-table.split tfoot tr { height: auto; }
+  .cmp-table.split tbody td,
+  .cmp-table.split tfoot td { padding: 4px 3px; line-height: 1.3; }
+  .cmp-table.split thead th { padding: 4px 3px; }
+
+  /* জুম-ফিট থাকায় সাধারণত স্ক্রল লাগে না; + বাটনে বড় করলে পাশে স্ক্রল হয় */
+  .cmp-part { overflow-x: auto; overflow-y: hidden; }
+}
+
+@media print { .d2d-split { display: none !important; } }
+
+/* ==========================================================================
+   প্রিন্ট ফিক্স — transform-স্কেল মোড (fit-print):
+   লেআউট নতুন করে সাজে না, তাই কলাম কাটে না, দ্বিতীয় পাতাও আসে না
+   ========================================================================== */
+
+@media print {
+  /* Month Closing — পিসি থেকে প্রিন্ট */
+  body.fit-print .mcs-scroll {
+    overflow: hidden !important;
+    width: var(--fitw) !important;
+    height: var(--fith) !important;
+    margin: 0 auto !important;   /* দুই পাশে সমান ফাঁক — পাতার মাঝে বসে */
+  }
+  body.fit-print .mcs-doc {
+    transform: scale(var(--fits));
+    transform-origin: top left;
+  }
+
+  /* Compare — #printArea এখন inline মাপে চলে, stylesheet যেন তা না ভাঙে */
+  body.print-compare #printArea { overflow: hidden; }
+}

@@ -20,6 +20,7 @@ const state = {
   months: [],
   live: false,
   entryList: [],
+  d2dRows: [],
   closingList: [],
   labels: {},
   compareRows: [],
@@ -258,9 +259,10 @@ async function bootstrap() {
   await loadNotice();
   setupArrowNav();
   setupListCalendar();
+  setupD2D();
   fillListMonths();
   setListDate(todayIso(), true);
-  await Promise.all([refreshCompare(), refreshClosingSheet(), refreshEntryList()]);
+  await Promise.all([refreshCompare(), refreshClosingSheet(), refreshEntryList(), refreshD2D()]);
 }
 
 /* ---------- selects ---------- */
@@ -580,7 +582,7 @@ async function refreshCompare() {
   }
 
   if (!from || !to) {
-    $('#compareRows').innerHTML = '<tr><td colspan="25" class="empty">তারিখ নির্বাচন করুন</td></tr>';
+    $('#compareRows').innerHTML = '<tr><td colspan="24" class="empty">তারিখ নির্বাচন করুন</td></tr>';
     $('#compareFoot').innerHTML = '';
     return;
   }
@@ -605,40 +607,28 @@ async function refreshCompare() {
       byBr.get(r.branch).push(r);
     });
     byBr.forEach((list, br) => {
-      list.sort((a, b) => a.entry_date.localeCompare(b.entry_date));
-      let base = 0;
-      let baseDate = '';
-      list.forEach((r) => {
-        if (r.kisti_cumulative && !blank(r.kisti_count)) {
-          base = Number(r.kisti_count);
-          baseDate = r.entry_date;
-        }
-      });
-      const added = list
-        .filter((r) => !r.kisti_cumulative && r.entry_date > baseDate && !blank(r.kisti_count))
-        .reduce((a, r) => a + Number(r.kisti_count), 0);
-      adayOf.set(br, base + added);
+      list.sort((x, y) => x.entry_date.localeCompare(y.entry_date));
 
-      /* Dis (মোট বিতরণ) একই নিয়মে:
-         শিট থেকে আসা রোতে grant_total_disbursement মাসের চলতি মোট,
-         আর নতুন এন্ট্রিতে সেদিনের "Today Disbursement" — দুটো যোগ হয় */
-      let disBase = 0;
-      let disDate = '';
+      // কিস্তি: মাসের চলতি মোট লেখা হয় — সর্বশেষ সংখ্যাটাই আদায়
+      let aday = 0;
+      list.forEach((r) => { if (!blank(r.kisti_count)) aday = Number(r.kisti_count); });
+      adayOf.set(br, aday);
+
+      // বিতরণ: প্রতিদিনের অঙ্ক যোগ হয়
+      let dBase = 0; let dDate = '';
       list.forEach((r) => {
         if (r.kisti_cumulative && !blank(r.grant_total_disbursement)) {
-          disBase = Number(r.grant_total_disbursement);
-          disDate = r.entry_date;
+          dBase = Number(r.grant_total_disbursement);
+          dDate = r.entry_date;
         }
       });
-      const disAdded = list
-        .filter((r) => r.entry_date > disDate && !blank(r.today_disbursement))
-        .reduce((a, r) => a + Number(r.today_disbursement), 0);
-      disOf.set(br, disBase + disAdded);
+      const dAdd = list
+        .filter((r) => r.entry_date > dDate && !blank(r.today_disbursement))
+        .reduce((t, r) => t + Number(r.today_disbursement), 0);
+      disOf.set(br, dBase + dAdd);
     });
   }
 
-  /* ভিত্তি কলামগুলো (Member / Loanee / Savings / Outstanding / overdue Up To /
-     Monthly Total) আগের মাসের ক্লোজিং থেকে আসে — CSV-তে এগুলোই দেওয়া থাকে */
   const base = new Map();
   const kistiTarget = new Map();
   (Array.isArray(baseClosings) ? baseClosings : []).forEach((row) => {
@@ -720,9 +710,8 @@ async function refreshCompare() {
       ${ED(r, 'cash_in_hand', r.calc.cash, 'c-yellow')}
       ${ED(r, 'bank', r.calc.bank, 'c-yellow')}
       <td>${r.calc.pct}%</td>
-      ${EC(r, 'weekly_loanee', r.a?.weekly, '')}
     </tr>`).join('')
-    : `<tr><td colspan="25" class="empty">${baseMonth ? `${formatMonthBn(baseMonth)} মাসের ক্লোজিং নেই — ভিত্তি কলাম ভরতে সেটা দরকার` : 'কোনো তথ্য নেই'}</td></tr>`;
+    : `<tr><td colspan="24" class="empty">${baseMonth ? `${formatMonthBn(baseMonth)} মাসের ক্লোজিং নেই — ভিত্তি কলাম ভরতে সেটা দরকার` : 'কোনো তথ্য নেই'}</td></tr>`;
 
   renderCompareCards(rows, v, sheetDate(from), sheetDate(to));
 
@@ -746,8 +735,9 @@ async function refreshCompare() {
       <td>${nf.format(totc('cash'))}</td>
       <td>${nf.format(totc('bank'))}</td>
       <td>${pctTotal}%</td>
-      <td>${nf.format(rows.reduce((a, r) => a + (Number(r.a?.weekly) || 0), 0))}</td>
     </tr>` : '';
+
+  requestAnimationFrame(fitBigTables);
 }
 
 /** মোবাইল ভিউ — একই টেবিল দুই ভাগে, দুটোতেই প্রথম কলাম Branch */
@@ -794,7 +784,7 @@ function renderCompareCards(rows, v, fromLabel, toLabel) {
       ).join('')}
     </tr>`;
 
-  /* ---------- নিচের টেবিল: Branch + O.T.R → Weekly Loney ---------- */
+  /* ---------- নিচের টেবিল: Branch + O.T.R → Monthly Kisti Aday ---------- */
   const head2 = `
     <thead>
       <tr>
@@ -808,7 +798,6 @@ function renderCompareCards(rows, v, fromLabel, toLabel) {
         <th rowspan="2">Cash In Hand</th>
         <th rowspan="2">BANK</th>
         <th rowspan="2">Monthly Kisti Aday ( % )</th>
-        <th rowspan="2">Weekly Loney</th>
       </tr>
       <tr>
         <th>Total</th><th>Aday</th>
@@ -828,7 +817,6 @@ function renderCompareCards(rows, v, fromLabel, toLabel) {
       <td class="c-yellow">${N(r.calc.cash)}</td>
       <td class="c-yellow">${N(r.calc.bank)}</td>
       <td>${r.calc.pct}%</td>
-      <td>${blank(r.a?.weekly) ? '—' : N(r.a.weekly)}</td>
     </tr>`).join('');
 
   const pctTotal = totc('total') ? Math.round((totc('aday') / totc('total')) * 100) : 0;
@@ -845,7 +833,6 @@ function renderCompareCards(rows, v, fromLabel, toLabel) {
       <td>${N(totc('cash'))}</td>
       <td>${N(totc('bank'))}</td>
       <td>${pctTotal}%</td>
-      <td>${N(rows.reduce((a, r) => a + (Number(r.a?.weekly) || 0), 0))}</td>
     </tr>`;
 
   box.innerHTML = `
@@ -862,7 +849,7 @@ function compareCsv() {
   const head = ['Branch', 'Member From', 'Member To', 'Inc/Dec', 'Loanee From', 'Loanee To', 'Inc/Dec',
     'Savings From', 'Savings To', 'Inc/Dec', 'Outstanding From', 'Outstanding To', 'Diferent',
     'OTR', 'Dis', 'Monthly Total', 'Monthly Aday', 'Due',
-    'Overdue Up To', 'Overdue This Month', 'Inc/Dec', 'Cash In Hand', 'BANK', 'Monthly Kisti Aday %', 'Weekly Loanee'];
+    'Overdue Up To', 'Overdue This Month', 'Inc/Dec', 'Cash In Hand', 'BANK', 'Monthly Kisti Aday %'];
   const g = (r, side, key) => {
     const x = r[side] ? r[side][key] : null;
     return blank(x) ? 0 : Number(x);
@@ -873,7 +860,7 @@ function compareCsv() {
     ...['members', 'loanee', 'savings', 'loan'].flatMap((k) => [g(r, 'a', k), g(r, 'b', k), g(r, 'b', k) - g(r, 'a', k)]),
     r.calc.otr, r.calc.dis, r.calc.total, r.calc.aday, r.calc.due,
     g(r, 'a', 'overdue'), g(r, 'b', 'overdue'), g(r, 'b', 'overdue') - g(r, 'a', 'overdue'),
-    r.calc.cash, r.calc.bank, `${r.calc.pct}%`, (r.a && r.a.weekly) || 0
+    r.calc.cash, r.calc.bank, `${r.calc.pct}%`
   ].join(','));
   downloadCsv([head.join(','), ...body].join('\n'), `compare-${$('#cmpDate').value}.csv`);
 }
@@ -1290,6 +1277,9 @@ function applySheetZoom(z, keep) {
 }
 
 function fitSheetToView() {
+  /* ছাপার মাপজোখ চলার সময় স্ক্রিন-ফিট চালানো যাবে না — নইলে প্রিন্ট-স্কেলের
+     ওপর স্ক্রিন-জুমও বসে গিয়ে সিট দ্বিগুণ ছোট হয়ে বাঁ দিকে চেপে যায় */
+  if (document.body.classList.contains('printing')) return;
   const doc = $('.mcs-doc');
   const box = $('.mcs-scroll');
   if (!doc || !box || $('#closingPage').style.display === 'none') return;
@@ -1366,8 +1356,54 @@ function setupPinchZoom() {
 let fitTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(fitTimer);
-  fitTimer = setTimeout(fitSheetToView, 120);
+  fitTimer = setTimeout(() => { fitSheetToView(); fitBigTables(); }, 120);
 });
+
+/* ---------- বড় টেবিল পর্দার চওড়ায় জুম-ফিট (স্ক্রলের বদলে ছোট করে পুরোটা) ----------
+   ব্যবহারকারী −/+ বাটনে নিজের মতো ছোট-বড়ও করতে পারেন (ফিটের সাথে গুণ হয়) */
+
+const tableZoomF = { d2d: 1, cmp: 1 };
+
+function fitZoomTable(tbl, box, mult = 1) {
+  if (!tbl || !box || !box.clientWidth) return undefined;
+  tbl.style.zoom = '';
+  const w = tbl.scrollWidth;
+  const avail = box.clientWidth - 2;
+  if (!w || avail <= 0) return undefined;
+  let z = Math.min(1, avail / w) * mult;
+  z = Math.min(3, Math.max(0.15, z));
+  tbl.style.zoom = Math.abs(z - 1) < 0.002 ? '' : Math.floor(z * 1000) / 1000;
+  return z;
+}
+
+function setTableZoomLabel(sel, z) {
+  const el = $(sel);
+  if (el) el.textContent = z ? `${toBnDigits(Math.round(z * 100))}%` : '—';
+}
+
+function fitBigTables() {
+  // এন্ট্রি পেজ — তারিখ-তুলনা টেবিল (পিসি: পুরো টেবিল, মোবাইল: দুই ভাগ)
+  const z1 = fitZoomTable($('#tblD2D'), $('#d2dCard .table-wrap'), tableZoomF.d2d);
+  let z1m;
+  $$('#d2dSplit .cmp-table.split').forEach((t) => {
+    z1m = fitZoomTable(t, t.parentElement, tableZoomF.d2d) || z1m;
+  });
+  setTableZoomLabel('#d2dZoomVal', z1 || z1m);
+
+  // Compare পেজ
+  const z2 = fitZoomTable($('#tblCompare'), $('.cmp-wrap'), tableZoomF.cmp);
+  let z2m;
+  $$('#compareCards .cmp-table.split').forEach((t) => {
+    z2m = fitZoomTable(t, t.parentElement, tableZoomF.cmp) || z2m;
+  });
+  setTableZoomLabel('#cmpZoomVal', z2 || z2m);
+}
+
+function bumpTableZoom(which, factor) {
+  tableZoomF[which] = factor === 0 ? 1
+    : Math.min(6, Math.max(0.3, tableZoomF[which] * factor));
+  fitBigTables();
+}
 
 /* ---------- প্রিন্ট: A4 ল্যান্ডস্কেপ, ০.৩" মার্জিন, এক পাতায় ---------- */
 
@@ -1375,14 +1411,26 @@ window.addEventListener('resize', () => {
 const PAGE_W = ((297 - 2 * 7.62) / 25.4) * 96;   // ≈ 1065px
 const PAGE_H = ((210 - 2 * 7.62) / 25.4) * 96;   // ≈ 736px
 
+/* খাড়া (portrait) A4-এর ছাপার জায়গা, ৬ মি.মি. মার্জিন বাদে */
+const PORT_W = ((210 - 2 * 6) / 25.4) * 96;   // ≈ ৭৪৮px
+const PORT_H = ((297 - 2 * 6) / 25.4) * 96;   // ≈ ১০৭৭px
+
+/** ফোনের প্রিন্ট ব্যবস্থা কাগজ খাড়া ধরে রাখে — তখন সিট ঘুরিয়ে বসাতে হয় */
+const phonePrint = () => window.matchMedia('(max-width: 900px)').matches
+  || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+
 function fitSheetForPrint() {
   const doc = $('.mcs-doc');
   const box = $('.mcs-scroll');
   if (!doc || !box) return;
 
   document.body.classList.add('printing');
+  document.body.classList.toggle('rot-print', phonePrint());
   doc.style.zoom = '';
-  doc.style.width = 'max-content';   // মাপার সময় কনটেন্টের আসল চওড়া
+  doc.style.transform = '';
+  doc.style.removeProperty('--mcs-pad');
+  /* !important দিয়ে বসাই — লিগ্যাসি width:100% রুলকে হারিয়ে আসল content-চওড়া পাই */
+  doc.style.setProperty('width', 'max-content', 'important');
   box.style.width = '';
   box.style.height = '';
 
@@ -1390,88 +1438,222 @@ function fitSheetForPrint() {
   const h = doc.scrollHeight;
   if (!w || !h) return;
 
-  /* মাপা অবস্থাটাই স্থির করে দিই — ছাপার সময় লেআউট আবার বদলে গিয়ে
-     উচ্চতা বেড়ে দ্বিতীয় পাতা তৈরি হওয়ার সুযোগ থাকে না */
-  doc.style.width = `${w}px`;
+  /* চওড়া পিক্সেলে আটকে দিই — ভেতরের width:100% টেবিলগুলো এই নির্দিষ্ট মাপের
+     বিপরীতে বসে, ফলে স্ক্রিন ও প্রিন্টে লেআউট হুবহু এক থাকে */
+  doc.style.setProperty('width', `${w}px`, 'important');
 
-  const scale = Math.floor(Math.min(PAGE_W / w, PAGE_H / h) * 0.98 * 1000) / 1000;
-  doc.style.zoom = scale;
+  if (phonePrint()) {
+    /* ঘোরানোর পর সিটের চওড়া পাতার উচ্চতায়, উচ্চতা পাতার চওড়ায় বসে */
+    const s = Math.min(PORT_H / w, PORT_W / h) * 0.98;
+    doc.style.setProperty('--rot-scale', s.toFixed(3));
+    const freeW = PORT_W - h * s;          // ঘোরানো অবস্থায় এটাই "উচ্চতা"
+    if (freeW > 20) {
+      const rowCount = doc.querySelectorAll('tr').length || 1;
+      doc.style.setProperty('--mcs-pad', `${Math.min(freeW / s / rowCount / 2, 22).toFixed(1)}px`);
+    }
+    return;
+  }
+
+  // কম্পিউটার — zoom নয়, transform-স্কেল: লেআউট নতুন করে সাজে না, তাই
+  // ডান পাশের কলাম কাটে না এবং দ্বিতীয় পাতাও আসে না
+  // (চওড়া উপরে পিক্সেলে আটকানো আছে — সেটাই থাকবে)
+
+  // ১) আনুমানিক স্কেল ধরে ফাঁকা উচ্চতা সারিগুলোর ফাঁকে ভাগ করে দিই
+  const fit1 = Math.min(PAGE_W / w, PAGE_H / h, 1);
+  const rowCount = doc.querySelectorAll('tr').length || 1;
+  const freeH = PAGE_H / fit1 - h;
+  if (freeH > 20) {
+    doc.style.setProperty('--mcs-pad', `${Math.min(freeH / rowCount / 2, 22).toFixed(1)}px`);
+  }
+
+  // ২) প্যাডিং বসার পর আবার মেপে চূড়ান্ত স্কেল — ৬% ছোট রাখা হয় যাতে
+  //    Chrome-এর Default মার্জিনেও দুই পাশে সুন্দর ফাঁক রেখে বসে
+  const w2 = doc.scrollWidth;
+  const h2 = doc.scrollHeight;
+  const s = Math.min(PAGE_W / w2, PAGE_H / h2, 1) * 0.94;
+
+  document.body.classList.add('fit-print');
+  doc.style.setProperty('--fits', s.toFixed(4));
+  /* সামান্য headroom — প্রিন্ট রেন্ডারের খুদে পার্থক্যে যেন শেষ কলাম/সারি না কাটে */
+  box.style.setProperty('--fitw', `${Math.ceil(w2 * s) + 10}px`);
+  box.style.setProperty('--fith', `${Math.ceil(h2 * s) + 8}px`);
 }
 
 function clearPrintFit() {
   const doc = $('.mcs-doc');
   const box = $('.mcs-scroll');
-  document.body.classList.remove('printing');
-  if (doc) { doc.style.zoom = ''; doc.style.width = ''; }
-  if (box) { box.style.width = ''; box.style.height = ''; }
+  document.body.classList.remove('printing', 'rot-print', 'fit-print');
+  if (doc) {
+    doc.style.zoom = '';
+    doc.style.width = '';
+    doc.style.transform = '';
+    doc.style.removeProperty('--mcs-pad');
+    doc.style.removeProperty('--rot-scale');
+    doc.style.removeProperty('--fits');
+  }
+  if (box) {
+    box.style.width = '';
+    box.style.height = '';
+    box.style.removeProperty('--fitw');
+    box.style.removeProperty('--fith');
+  }
   fitSheetToView();   // প্রিন্টের পর আবার স্ক্রিনের মাপে
 }
 
 /** Ctrl+P বা বাটন — দুই পথেই মাপ ঠিক হয়ে যায় */
 window.addEventListener('beforeprint', () => {
   if ($('#closingPage').style.display !== 'none') fitSheetForPrint();
-  if ($('#comparePage').style.display !== 'none') fitCompareForPrint();
+  if ($('#comparePage').style.display !== 'none') {
+    buildComparePrintArea();
+    fitPrintAreaWidth();
+    document.body.classList.add('print-compare');
+  }
 });
-window.addEventListener('afterprint', () => { clearPrintFit(); clearComparePrint(); });
+window.addEventListener('afterprint', () => {
+  clearPrintFit();
+  document.body.classList.remove('print-compare');
+});
 
 
 /* ---------- Compare প্রিন্ট: A4 ল্যান্ডস্কেপ, পুরো পাতা জুড়ে এক পাতায় ---------- */
 
-function fitCompareForPrint() {
-  const tbl = $('#tblCompare');
-  const wrap = $('.cmp-wrap');
-  if (!tbl || !wrap) return;
+/* ==========================================================================
+   Compare প্রিন্ট — আলাদা পাতায়, নির্দিষ্ট বড় ফন্টে
+   পর্দার CSS বা মাপজোখের ওপর নির্ভর করে না, তাই ফন্ট কখনো ছোট হয় না
+   ========================================================================== */
 
-  document.body.classList.add('printing-cmp');
-  tbl.style.zoom = '';
-  tbl.style.removeProperty('--cmp-pad');
 
-  /* পর্দায় ঘরের যে প্যাডিং, ছাপাতেও সেটাই ভিত্তি ধরি — নইলে মাপা উচ্চতার সাথে
-     ছাপার উচ্চতা মেলে না, আর টেবিল দরকারের চেয়ে অনেক ছোট হয়ে যায় */
-  const sampleTd = tbl.querySelector('tbody td');
-  const sampleTh = tbl.querySelector('thead th');
-  const padTd = sampleTd ? parseFloat(getComputedStyle(sampleTd).paddingTop) || 4 : 4;
-  const padTh = sampleTh ? parseFloat(getComputedStyle(sampleTh).paddingTop) || 4 : 4;
-  tbl.style.setProperty('--cmp-base-td', `${padTd}px`);
-  tbl.style.setProperty('--cmp-base-th', `${padTh}px`);
-
-  /* টেবিলের চওড়া শতকরায় থাকলে zoom বসানোর পর সেটা আবার পাত্রের মাপে মিলে যায়,
-     ফলে দ্বিগুণ ছোট হয়ে পড়ে। তাই আগে আসল (max-content) চওড়া মেপে
-     সেটাকেই পিক্সেলে স্থির করে দিই */
-  tbl.style.width = 'max-content';
-  const w = tbl.scrollWidth;
-  const h = tbl.scrollHeight;
-  if (!w || !h) return;
-  tbl.style.width = `${w}px`;
-
-  // উপরে একটু ফাঁক রেখে বসাই, তাই ততটুকু উচ্চতা বাদ দিয়ে হিসাব
-  const TOP_GAP = 34;
-  const availH = PAGE_H - TOP_GAP;
-  const scale = Math.floor(Math.min(PAGE_W / w, availH / h) * 0.995 * 1000) / 1000;
-  tbl.style.zoom = scale;
-
-  // বাকি উচ্চতাটা সারিগুলোর মধ্যে ভাগ করে পাতা ভরাট করি
-  const rowCount = tbl.querySelectorAll('tr').length || 1;
-  const freeH = availH - h * scale;
-  if (freeH > 8) {
-    tbl.style.setProperty('--cmp-pad', `${Math.min(freeH / scale / rowCount / 2, 7).toFixed(1)}px`);
+/** ছাপার জন্য এক সারির পূর্ণ টেবিল বানাই — পাতার ভেতরেই, পপআপ ছাড়া */
+function buildComparePrintArea() {
+  const rows = state.compareRows || [];
+  let area = $('#printArea');
+  if (!area) {
+    area = document.createElement('div');
+    area.id = 'printArea';
+    document.body.appendChild(area);
   }
+  if (!rows.length) { area.innerHTML = ''; return false; }
+
+  const N = (x) => nf.format(Math.round(Number(x) || 0)).replace(/,/g, '');
+  const v = (r, side, key) => {
+    const x = r[side] ? r[side][key] : null;
+    return blank(x) ? 0 : Number(x);
+  };
+  const d = (r, k) => v(r, 'b', k) - v(r, 'a', k);
+  const KEYS = ['members', 'loanee', 'savings', 'loan'];
+
+  const line = (r) => [
+    ...KEYS.flatMap((k) => [v(r, 'a', k), v(r, 'b', k), d(r, k)]),
+    r.calc.otr, r.calc.dis, r.calc.total, r.calc.aday, r.calc.due,
+    v(r, 'a', 'overdue'), v(r, 'b', 'overdue'), d(r, 'overdue'),
+    r.calc.cash, r.calc.bank, `${r.calc.pct}%`
+  ];
+  const t = (side, k) => rows.reduce((acc, r) => acc + v(r, side, k), 0);
+  const c = (k) => rows.reduce((acc, r) => acc + (Number(r.calc[k]) || 0), 0);
+  const totalLine = [
+    ...KEYS.flatMap((k) => [t('a', k), t('b', k), t('b', k) - t('a', k)]),
+    Math.round(c('otr')), c('dis'), c('total'), c('aday'), c('due'),
+    t('a', 'overdue'), t('b', 'overdue'), t('b', 'overdue') - t('a', 'overdue'),
+    c('cash'), c('bank'), `${c('total') ? Math.round((c('aday') / c('total')) * 100) : 0}%`
+  ];
+  const cell = (x) => (typeof x === 'number'
+    ? `<td class="${x < 0 ? 'neg' : ''}">${N(x)}</td>`
+    : `<td>${x}</td>`);
+
+  const fromTxt = $('.cmp-from')?.textContent || '';
+  const toTxt = $('.cmp-to')?.textContent || '';
+
+  area.innerHTML = `
+    <div id="paScale">
+    <div class="pa-top">
+      <i class="bkf-logo lg"></i>
+      <div><div class="pa-t1">Bandhu Kallyan Foundation</div><div class="pa-t2">Narail Area</div></div>
+    </div>
+    <div class="pa-meta">
+      <span>${$('#cmpMonthLabel')?.textContent || ''}</span>
+      <span>Date ${$('#cmpDateLabel')?.textContent || ''}</span>
+      <span>Day ${$('#cmpDayLabel')?.textContent || ''}</span>
+    </div>
+    <table class="pa-table">
+      <thead>
+        <tr>
+          <th class="b" rowspan="2">Branch</th>
+          <th colspan="2">Member</th><th rowspan="2">+/-</th>
+          <th colspan="2">Loanee</th><th rowspan="2">+/-</th>
+          <th colspan="2">Savings</th><th rowspan="2">+/-</th>
+          <th colspan="2">Outstading</th><th rowspan="2">Diff</th>
+          <th rowspan="2">OTR</th><th rowspan="2">Dis</th>
+          <th colspan="2">Monthly</th><th rowspan="2">Due</th>
+          <th colspan="2">overdue</th><th rowspan="2">+/-</th>
+          <th rowspan="2">Cash</th><th rowspan="2">BANK</th>
+          <th rowspan="2">Kisti%</th>
+        </tr>
+        <tr>
+          ${[1, 2, 3, 4].map(() => `<th>${fromTxt}</th><th>${toTxt}</th>`).join('')}
+          <th>Total</th><th>Aday</th>
+          <th>${fromTxt}</th><th>${toTxt}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r) => `<tr><td class="b">${r.branch}</td>${line(r).map(cell).join('')}</tr>`).join('')}
+      </tbody>
+      <tfoot><tr><td class="b">Total</td>${totalLine.map(cell).join('')}</tr></tfoot>
+    </table>
+    </div>`;
+  return true;
 }
 
-function clearComparePrint() {
-  const tbl = $('#tblCompare');
-  document.body.classList.remove('printing-cmp');
-  if (tbl) {
-    tbl.style.zoom = '';
-    tbl.style.width = '';
-    tbl.style.removeProperty('--cmp-pad');
-    tbl.style.removeProperty('--cmp-base-td');
-    tbl.style.removeProperty('--cmp-base-th');
-  }
+function fitCompareForPrint() { buildComparePrintArea(); }
+function clearComparePrint() {}
+
+/* A4 ল্যান্ডস্কেপে ছাপার জায়গা (৬ মি.মি. মার্জিন বাদে), ৯৬dpi পিক্সেলে */
+const A4_W = ((297 - 2 * 6) / 25.4) * 96;   // ≈ ১০৭৬px
+const A4_H = ((210 - 2 * 6) / 25.4) * 96;   // ≈ ৭৪৮px
+
+/** টেবিল পাতার চেয়ে চওড়া হলে ছোট করি — transform-স্কেল, তাই লেআউট আর বদলায় না,
+    কোনো কলাম কাটা পড়ে না; আর সিটটা পাতার মাঝ বরাবর বসে */
+function fitPrintAreaWidth() {
+  const area = $('#printArea');
+  const inner = $('#paScale');
+  const tbl = area?.querySelector('.pa-table');
+  if (!area || !inner || !tbl) return;
+
+  /* আগের মাপজোখ মুছে প্রাকৃতিক মাপে মাপি */
+  area.style.zoom = '';
+  area.style.width = '';
+  area.style.height = '';
+  area.style.margin = '';
+  area.style.overflow = '';
+  inner.style.transform = '';
+  inner.style.width = 'max-content';
+
+  area.classList.add('measuring');     // ছাপার স্টাইলসহ পর্দার বাইরে
+  const w = inner.scrollWidth;
+  const h = inner.scrollHeight;
+  area.classList.remove('measuring');
+  if (!w || !h) return;
+
+  /* zoom নয় — transform scale: লেআউট নতুন করে সাজে না, তাই কলামের মাপ
+     একচুলও বদলায় না — ডান পাশ কাটা অসম্ভব, দ্বিতীয় পাতাও আসে না।
+     ৬% ছোট রাখা হয় যাতে Chrome-এর Default মার্জিনেও দুই পাশে ফাঁক রেখে বসে */
+  const s = Math.min(A4_W / w, A4_H / h, 1) * 0.94;
+  inner.style.transformOrigin = 'top left';
+  inner.style.transform = `scale(${s.toFixed(4)})`;
+
+  /* বাইরের বাক্সকে স্কেল-করা মাপ দিই, আর উপরে মার্জিন দিয়ে
+     সিটটা পাতার ঠিক মাঝ বরাবর বসাই */
+  area.style.width = `${Math.ceil(w * s) + 8}px`;
+  area.style.height = `${Math.ceil(h * s) + 6}px`;
+  area.style.overflow = 'hidden';
+  /* পাতার মাঝ বরাবর — Default মার্জিনের কথা ভেবে একটু রক্ষণশীল হিসাব */
+  const topGap = Math.max(0, Math.floor((A4_H * 0.94 - h * s) / 2));
+  area.style.margin = `${topGap}px auto 0`;
 }
 
 function printCompare() {
-  fitCompareForPrint();
+  if (!buildComparePrintArea()) return toast('আগে তথ্য আনুন', 'err');
+  fitPrintAreaWidth();
+  document.body.classList.add('print-compare');
   requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
 }
 
@@ -2142,6 +2324,7 @@ async function reloadVisible() {
   const jobs = [];
   if ($('#entryPage').style.display !== 'none') {
     jobs.push($('#tblEntryList').style.display === 'none' ? refreshClosingList() : refreshEntryList());
+    jobs.push(refreshD2D());
   }
   if ($('#comparePage').style.display !== 'none') jobs.push(refreshCompare());
   if ($('#closingPage').style.display !== 'none') jobs.push(refreshClosingSheet());
@@ -2289,6 +2472,308 @@ function guardWho() {
   return false;
 }
 
+
+/* ==========================================================================
+   তারিখ থেকে তারিখ তুলনা (এন্ট্রি পেজের নিচে)
+   গত মাসের একটি দিনের সাথে এ মাসের একটি দিনের পার্থক্য
+   ========================================================================== */
+
+/** যেকোনো জায়গায় একই রকম ক্যালেন্ডার বসানোর সাধারণ ব্যবস্থা */
+function makeCalendar(id, onPick) {
+  let cursor = todayIso().slice(0, 7);
+  const pop = $(`#${id}Cal`);
+
+  const draw = () => {
+    const [y, m] = cursor.split('-').map(Number);
+    const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+    $(`#${id}CalTitle`).textContent = `${MONTHS_EN[m - 1]} ${y}`;
+    const first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const sel = $(`#${id}`).value;
+    const today = todayIso();
+    let html = '';
+    for (let i = 0; i < first; i++) html += '<span class="cal-cell blank"></span>';
+    for (let d = 1; d <= last; d++) {
+      const iso = `${cursor}-${String(d).padStart(2, '0')}`;
+      const cls = ['cal-cell', iso === sel ? 'sel' : '', iso === today ? 'today' : '',
+        state.dates.includes(iso) ? 'has' : ''].filter(Boolean).join(' ');
+      html += `<button type="button" class="${cls}" data-date="${iso}">${d}</button>`;
+    }
+    $(`#${id}CalGrid`).innerHTML = html;
+  };
+
+  const set = (iso, silent) => {
+    $(`#${id}`).value = iso || '';
+    $(`#${id}Text`).textContent = iso ? formatDateEn(iso) : '—';
+    cursor = (iso || todayIso()).slice(0, 7);
+    if (!silent && onPick) onPick(iso);
+  };
+
+  $(`#${id}Btn`).onclick = (e) => {
+    e.stopPropagation();
+    if (pop.hidden) { draw(); pop.hidden = false; } else pop.hidden = true;
+  };
+  pop.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const nav = e.target.closest('[data-cal]');
+    if (nav) {
+      const [y, m] = cursor.split('-').map(Number);
+      const d = new Date(Date.UTC(y, m - 1 + (nav.dataset.cal === 'next' ? 1 : -1), 1));
+      cursor = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      draw();
+      return;
+    }
+    const cell = e.target.closest('.cal-cell[data-date]');
+    if (cell) { set(cell.dataset.date); pop.hidden = true; }
+  });
+  document.addEventListener('click', () => { pop.hidden = true; });
+
+  return { set };
+}
+
+/** একই দিন, আগের মাস */
+function sameDayLastMonth(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const prev = new Date(Date.UTC(y, m - 2, 1));
+  const last = new Date(Date.UTC(prev.getUTCFullYear(), prev.getUTCMonth() + 1, 0)).getUTCDate();
+  const day = Math.min(d, last);
+  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+let d2dCal = null;
+
+/** শুক্র/শনি হলে আগের কর্মদিবসে সরে যাই */
+function workDay(iso) {
+  if (!iso) return iso;
+  let d = new Date(`${iso}T00:00:00Z`);
+  for (let i = 0; i < 7; i++) {
+    const dow = d.getUTCDay();          // ০=রবি … ৫=শুক্র, ৬=শনি
+    if (dow !== 5 && dow !== 6) break;
+    d = new Date(d.getTime() - 86400000);
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+const DAY_BN = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
+const dayName = (iso) => DAY_BN[new Date(`${iso}T00:00:00Z`).getUTCDay()];
+
+function setupD2D() {
+  if (!$('#tblD2D')) return;
+  d2dCal = makeCalendar('d2dTo', () => refreshD2D());
+  d2dCal.set(state.dates[0] || todayIso(), true);
+  $('#d2dReload').onclick = refreshD2D;
+  $('#d2dCsv').onclick = d2dCsv;
+}
+
+/** এক মাসের সব রো থেকে প্রতিটি শাখার চলতি যোগফল (কিস্তি ও বিতরণ) — তারিখ পর্যন্ত */
+async function monthTotals(dateIso) {
+  const out = new Map();
+  const rows = await apiGet(`daily?month=${encodeURIComponent(dateIso.slice(0, 7))}`);
+  if (!Array.isArray(rows)) return out;
+
+  const byBr = new Map();
+  rows.filter((r) => r.entry_date <= dateIso).forEach((r) => {
+    if (!byBr.has(r.branch)) byBr.set(r.branch, []);
+    byBr.get(r.branch).push(r);
+  });
+
+  byBr.forEach((list, br) => {
+    list.sort((x, y) => x.entry_date.localeCompare(y.entry_date));
+
+    /* মাসিক কিস্তি: এন্ট্রিতে মাসের চলতি মোট লেখা হয় (৪ → ২২ → ৪৩),
+       তাই যোগ নয় — তারিখ পর্যন্ত সর্বশেষ লেখা সংখ্যাটাই আদায়। */
+    let aday = 0;
+    list.forEach((r) => { if (!blank(r.kisti_count)) aday = Number(r.kisti_count); });
+
+    /* বিতরণ: প্রতিদিনের অঙ্ক আলাদা, তাই যোগ হয়।
+       শিট থেকে আসা রোতে মাসের চলতি মোট থাকলে সেটি ভিত্তি। */
+    let dBase = 0; let dDate = '';
+    list.forEach((r) => {
+      if (r.kisti_cumulative && !blank(r.grant_total_disbursement)) {
+        dBase = Number(r.grant_total_disbursement);
+        dDate = r.entry_date;
+      }
+    });
+    const dAdd = list
+      .filter((r) => r.entry_date > dDate && !blank(r.today_disbursement))
+      .reduce((t, r) => t + Number(r.today_disbursement), 0);
+
+    out.set(br, { aday, dis: dBase + dAdd });
+  });
+
+  return out;
+}
+
+async function refreshD2D() {
+  const tbl = $('#tblD2D');
+  if (!tbl) return;
+
+  const picked = $('#d2dTo').value;
+  if (!picked) {
+    $('#d2dRows').innerHTML = '<tr><td colspan="34" class="empty">তারিখ বেছে নিন</td></tr>';
+    $('#d2dFoot').innerHTML = '';
+    const sp = $('#d2dSplit');
+    if (sp) sp.innerHTML = '';
+    return;
+  }
+
+  // শুক্র/শনি হলে আগের কর্মদিবস; গত মাসের একই দিনেও একই নিয়ম
+  const to = workDay(picked);
+  const from = workDay(sameDayLastMonth(picked));
+
+  const sheetDate = (iso) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+    if (!m) return '—';
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${m[3]}-${MON[+m[2] - 1]}-${m[1].slice(2)}`;
+  };
+  $$('.d2d-from').forEach((el) => { el.textContent = sheetDate(from); });
+  $$('.d2d-to').forEach((el) => { el.textContent = sheetDate(to); });
+
+  const note = $('#d2dNote');
+  if (note) {
+    note.textContent = to === picked
+      ? `${sheetDate(from)} (${dayName(from)}) ↔ ${sheetDate(to)} (${dayName(to)})`
+      : `${dayName(picked)} বলে আগের কর্মদিবস নেওয়া হলো — ${sheetDate(from)} ↔ ${sheetDate(to)}`;
+  }
+
+  const [aRows, bRows, baseA, baseB, closA, closB, totA, totB] = await Promise.all([
+    dailyFor(from),
+    dailyFor(to),
+    apiGet(`month-close?month=${encodeURIComponent(prevMonth(from.slice(0, 7)))}`),
+    apiGet(`month-close?month=${encodeURIComponent(prevMonth(to.slice(0, 7)))}`),
+    apiGet(`month-close?month=${encodeURIComponent(from.slice(0, 7))}`),
+    apiGet(`month-close?month=${encodeURIComponent(to.slice(0, 7))}`),
+    monthTotals(from),
+    monthTotals(to)
+  ]);
+
+  const baseMap = (res) => {
+    const m = new Map();
+    (Array.isArray(res) ? res : []).forEach((row) => {
+      const c = normalizeClosing(row);
+      m.set(c.branch, {
+        members: c.member_total, loanee: c.loanee_total, savings: c.savings_total,
+        loan: c.loan_total, overdue: c.overdue_total, kisti: c.monthly_kisti_count
+      });
+    });
+    return m;
+  };
+  const bA = baseMap(baseA);
+  const bB = baseMap(baseB);
+  const targetFrom = baseMap(closA);   // গত মাসের কিস্তির লক্ষ্যমাত্রা
+  const targetTo = baseMap(closB);     // এ মাসের লক্ষ্যমাত্রা
+
+  const byBranch = new Map();
+  const touch = (name, bn) => {
+    if (!byBranch.has(name)) byBranch.set(name, { branch: name, bn: bn || state.bnLookup[name] });
+    return byBranch.get(name);
+  };
+  bB.forEach((_, name) => touch(name));
+  aRows.forEach((r) => { touch(r.branch, r.bn).a = r; });
+  bRows.forEach((r) => { touch(r.branch, r.bn).b = r; });
+
+  const rows = orderRows([...byBranch.values()]);
+  state.d2dRows = rows;
+
+  const n = (x) => (blank(x) ? 0 : Number(x));
+  const dv = (r, side, key) => n(r[side] ? r[side][key] : null);
+  const bv = (map, branch, key) => n((map.get(branch) || {})[key]);
+
+  rows.forEach((r) => {
+    const incA = (k) => dv(r, 'a', k) - bv(bA, r.branch, k);
+    const incB = (k) => dv(r, 'b', k) - bv(bB, r.branch, k);
+
+    // চলতি যোগফল — মাসের শুরু থেকে ওই তারিখ পর্যন্ত
+    const cA = totA.get(r.branch) || { aday: 0, dis: 0 };
+    const cB = totB.get(r.branch) || { aday: 0, dis: 0 };
+    /* কিস্তির লক্ষ্যমাত্রা: ওই মাসের ক্লোজিং থেকে।
+       এ মাসের ক্লোজিং এখনো না দিলে গত মাসেরটাই ধরি, নইলে Due ঋণাত্মক হয়ে যায়। */
+    const targetA = bv(targetFrom, r.branch, 'kisti') || bv(bA, r.branch, 'kisti');
+    const targetB = bv(targetTo, r.branch, 'kisti') || bv(targetFrom, r.branch, 'kisti');
+
+    r.mx = [
+      ['members', incA('members'), incB('members')],
+      ['loanee', incA('loanee'), incB('loanee')],
+      ['savings', incA('savings'), incB('savings')],
+      ['loan', incA('loan'), incB('loan')],
+      ['otr', dv(r, 'a', 'recovery'), dv(r, 'b', 'recovery')],
+      ['dis', cA.dis, cB.dis],
+      ['maday', cA.aday, cB.aday],
+      ['overdue', incA('overdue'), incB('overdue')],
+      ['cash', dv(r, 'a', 'cash'), dv(r, 'b', 'cash')],
+      ['bank', dv(r, 'a', 'bank'), dv(r, 'b', 'bank')],
+      ['pct', targetA ? Math.round((cA.aday / targetA) * 100) : 0,
+        targetB ? Math.round((cB.aday / targetB) * 100) : 0]
+    ];
+  });
+
+  const N = (x) => nf.format(Math.round(Number(x) || 0));
+  const cellSet = (key, va, vb) => {
+    const diff = vb - va;
+    const fmt = key === 'pct' ? (x) => `${Math.round(x)}%` : N;
+    return `<td class="c-from">${fmt(va)}</td>`
+      + `<td class="c-to">${fmt(vb)}</td>`
+      + `<td class="c-delta ${diff < 0 ? 'neg' : diff > 0 ? 'pos' : ''}">${fmt(diff)}</td>`;
+  };
+
+  $('#d2dRows').innerHTML = rows.length ? rows.map((r) => `<tr>
+      <td class="c-branch">${r.branch}</td>
+      ${r.mx.map(([k, va, vb]) => cellSet(k, va, vb)).join('')}
+    </tr>`).join('')
+    : '<tr><td colspan="34" class="empty">এই তারিখে কোনো তথ্য নেই</td></tr>';
+
+  if (rows.length) {
+    const foot = [];
+    for (let i = 0; i < rows[0].mx.length; i++) {
+      const key = rows[0].mx[i][0];
+      const sa = rows.reduce((t, r) => t + r.mx[i][1], 0);
+      const sb = rows.reduce((t, r) => t + r.mx[i][2], 0);
+      foot.push(cellSet(key, key === 'pct' ? sa / rows.length : sa, key === 'pct' ? sb / rows.length : sb));
+    }
+    $('#d2dFoot').innerHTML = `<tr><td class="c-branch">Total</td>${foot.join('')}</tr>`;
+
+    /* ---------- মোবাইল: একই টেবিল দুই ভাগে, দুটোতেই প্রথম কলাম Branch ---------- */
+    const GROUPS = ['Member<br />Inc / Dec', 'Loanee<br />Inc / Dec', 'Savings<br />Inc / Dec',
+      'Outstading<br />Diferent', 'O.T.R', 'Dis', 'Monthly<br />Aday', 'overdue<br />Inc / Dec',
+      'Cash In Hand', 'BANK', 'Monthly Kisti<br />Aday ( % )'];
+    const fromLbl = sheetDate(from);
+    const toLbl = sheetDate(to);
+    const part = (idx) => `<div class="cmp-part"><table class="cmp-table split">
+        <thead>
+          <tr><th rowspan="2">Branch</th>${idx.map((i) => `<th colspan="3">${GROUPS[i]}</th>`).join('')}</tr>
+          <tr>${idx.map(() => `<th class="h-from">${fromLbl}</th><th class="h-to">${toLbl}</th><th>পার্থক্য</th>`).join('')}</tr>
+        </thead>
+        <tbody>${rows.map((r) => `<tr><td class="c-branch">${r.branch}</td>${idx.map((i) => cellSet(r.mx[i][0], r.mx[i][1], r.mx[i][2])).join('')}</tr>`).join('')}</tbody>
+        <tfoot><tr><td class="c-branch">Total</td>${idx.map((i) => foot[i]).join('')}</tr></tfoot>
+      </table></div>`;
+    const sp = $('#d2dSplit');
+    if (sp) sp.innerHTML = part([0, 1, 2, 3, 4, 5]) + part([6, 7, 8, 9, 10]);
+  } else {
+    $('#d2dFoot').innerHTML = '';
+    const sp = $('#d2dSplit');
+    if (sp) sp.innerHTML = '';
+  }
+  requestAnimationFrame(fitBigTables);
+}
+
+function d2dCsv() {
+  const LABELS = ['Member Inc/Dec', 'Loanee Inc/Dec', 'Savings Inc/Dec', 'Outstading Diferent',
+    'O.T.R', 'Dis', 'Monthly Aday', 'overdue Inc/Dec',
+    'Cash In Hand', 'BANK', 'Kisti Aday %'];
+  const head = ['Branch'];
+  LABELS.forEach((l) => head.push(`${l} (গত মাস)`, `${l} (এ মাস)`, `${l} (পার্থক্য)`));
+  const body = (state.d2dRows || []).map((r) => {
+    const cells = [r.branch];
+    (r.mx || []).forEach(([, va, vb]) => cells.push(va, vb, vb - va));
+    return cells.join(',');
+  });
+  downloadCsv([head.join(','), ...body].join('\n'),
+    `inc-dec-${$('#d2dTo').value}.csv`);
+}
+
+
 /* ---------- shared ---------- */
 
 function downloadCsv(csv, filename) {
@@ -2321,6 +2806,7 @@ function showPage(page) {
   $$('.nav[data-page]').forEach((n) => n.classList.toggle('active', n.dataset.page === page));
   window.scrollTo({ top: 0 });
   if (page === 'closing') requestAnimationFrame(fitSheetToView);
+  if (page === 'entry' || page === 'compare') requestAnimationFrame(fitBigTables);
 }
 
 /* ---------- wire up ---------- */
@@ -2375,6 +2861,16 @@ function wire() {
   setupCalendar();
   $('#cmpCsv').onclick = compareCsv;
   $('#printBtn').onclick = printCompare;
+
+  /* টেবিলের জুম বাটন — এন্ট্রি (তুলনা) ও Compare */
+  const zoomWire = (which, out, val, inn, fit) => {
+    const q = (s) => $(s);
+    if (q(out)) q(out).onclick = () => bumpTableZoom(which, 1 / 1.15);
+    if (q(inn)) q(inn).onclick = () => bumpTableZoom(which, 1.15);
+    if (q(fit)) q(fit).onclick = () => bumpTableZoom(which, 0);
+  };
+  zoomWire('d2d', '#d2dZoomOut', '#d2dZoomVal', '#d2dZoomIn', '#d2dZoomFit');
+  zoomWire('cmp', '#cmpZoomOut', '#cmpZoomVal', '#cmpZoomIn', '#cmpZoomFit');
 
   $('#mcsApply').onclick = refreshClosingSheet;
   $('#mcsMonth').onchange = refreshClosingSheet;

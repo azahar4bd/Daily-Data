@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <title>বন্ধু কল্যাণ ফাউন্ডেশন — ডেটা এন্ট্রি ও রিপোর্ট</title>
   <link rel="icon" type="image/png" href="assets/logo.png" />
-  <link rel="stylesheet" href="assets/fonts.css" />
-  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="assets/fonts.css?v=202610121521" />
+  <link rel="stylesheet" href="assets/styles.css?v=202610121521" />
 </head>
 
 <body>
@@ -116,7 +116,7 @@
             <label class="field required"><span>মাস</span><input type="month" id="mcMonth" required /></label>
             <label class="field required wide"><span>শাখা</span><select id="mcBranch" required></select></label>
           </div>
-          <!-- বাকি সব ঘর assets/app.js থেকে ধারাবাহিকভাবে তৈরি হয় (লাইনে ৩টা করে) -->
+          <!-- বাকি সব ঘর assets/app.js?v=202610121521 থেকে ধারাবাহিকভাবে তৈরি হয় (লাইনে ৩টা করে) -->
           <div class="entry-grid" id="mcFields"></div>
           <div class="form-actions">
             <button class="btn primary" id="mcSave" type="submit">Save</button>
@@ -186,6 +186,79 @@
           </table>
         </div>
       </section>
+      <!-- ---------- তারিখ থেকে তারিখ তুলনা ---------- -->
+      <section class="card section entry-page" id="d2dCard">
+        <div class="section-head">
+          <h2>তারিখ থেকে তারিখ তুলনা</h2>
+          <div class="actions">
+            <div class="field cal-field">
+              <span>তারিখ</span>
+              <input type="hidden" id="d2dTo" />
+              <button type="button" class="cal-trigger" id="d2dToBtn">
+                <span id="d2dToText">—</span><i>▾</i>
+              </button>
+              <div class="cal-pop" id="d2dToCal" hidden>
+                <div class="cal-head">
+                  <button type="button" class="cal-nav" data-cal="prev">‹</button>
+                  <span id="d2dToCalTitle">—</span>
+                  <button type="button" class="cal-nav" data-cal="next">›</button>
+                </div>
+                <div class="cal-dows">
+                  <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div class="cal-grid" id="d2dToCalGrid"></div>
+              </div>
+            </div>
+            <span class="d2d-note" id="d2dNote"></span>
+            <button class="btn ghost" id="d2dReload" type="button">↻</button>
+            <button class="btn ghost" id="d2dCsv" type="button">↥ CSV</button>
+            <span class="zoom-group">
+              <button class="btn ghost zoom-btn" id="d2dZoomOut" type="button" title="ছোট">−</button>
+              <span class="zoom-val" id="d2dZoomVal">—</span>
+              <button class="btn ghost zoom-btn" id="d2dZoomIn" type="button" title="বড়">+</button>
+              <button class="btn ghost zoom-btn" id="d2dZoomFit" type="button" title="পর্দায় আঁটান">⤢</button>
+            </span>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="cmp-table" id="tblD2D">
+            <thead>
+              <tr>
+                <th rowspan="2">Branch</th>
+                <th colspan="3">Member<br />Inc / Dec</th>
+                <th colspan="3">Loanee<br />Inc / Dec</th>
+                <th colspan="3">Savings<br />Inc / Dec</th>
+                <th colspan="3">Outstading<br />Diferent</th>
+                <th colspan="3">O.T.R</th>
+                <th colspan="3">Dis</th>
+                <th colspan="3">Monthly<br />Aday</th>
+                <th colspan="3">overdue<br />Inc / Dec</th>
+                <th colspan="3">Cash In Hand</th>
+                <th colspan="3">BANK</th>
+                <th colspan="3">Monthly Kisti<br />Aday ( % )</th>
+              </tr>
+              <tr>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+                <th class="h-from d2d-from">—</th><th class="h-to d2d-to">—</th><th>পার্থক্য</th>
+              </tr>
+            </thead>
+            <tbody id="d2dRows"></tbody>
+            <tfoot id="d2dFoot"></tfoot>
+          </table>
+        </div>
+        <!-- মোবাইল: একই টেবিল দুই ভাগে, উপরে-নিচে -->
+        <div class="d2d-split" id="d2dSplit"></div>
+      </section>
     </div>
 
     <!-- =================================================================
@@ -215,6 +288,12 @@
         <button class="btn primary" id="cmpApply" type="button">দেখান</button>
         <button class="btn ghost" id="cmpCsv" type="button">↥ CSV</button>
         <button class="btn ghost" id="printBtn" type="button">⎙ প্রিন্ট</button>
+        <span class="zoom-group">
+          <button class="btn ghost zoom-btn" id="cmpZoomOut" type="button" title="ছোট">−</button>
+          <span class="zoom-val" id="cmpZoomVal">—</span>
+          <button class="btn ghost zoom-btn" id="cmpZoomIn" type="button" title="বড়">+</button>
+          <button class="btn ghost zoom-btn" id="cmpZoomFit" type="button" title="পর্দায় আঁটান">⤢</button>
+        </span>
         <span class="badge muted" id="cmpSource">—</span>
       </div>
 
@@ -223,7 +302,7 @@
           <thead>
             <!-- ব্যানার সারি: লোগো, নাম, এরিয়া -->
             <tr class="banner">
-              <td colspan="25">
+              <td colspan="24">
                 <div class="cmp-banner">
                   <i class="bkf-logo lg"></i>
                   <div>
@@ -234,7 +313,7 @@
               </td>
             </tr>
             <tr class="banner2">
-              <td colspan="25" class="b-meta">
+              <td colspan="24" class="b-meta">
                 <span id="cmpMonthLabel">Month-—</span>
                 <span>Date</span>
                 <span id="cmpDateLabel">—</span>
@@ -262,7 +341,6 @@
               <th rowspan="2">Cash<br />In<br />Hand</th>
               <th rowspan="2">BANK</th>
               <th rowspan="2">Mont<br />hly<br />Kisti<br />Aday<br />( % )</th>
-              <th rowspan="2">Weekl<br />y<br />Loney</th>
             </tr>
             <tr>
               <th class="h-from cmp-from">—</th><th class="h-to cmp-to">—</th>
@@ -501,6 +579,6 @@
 </nav>
 
 <div class="toast-stack" id="toastStack"></div>
-<script src="assets/app.js"></script>
+<script src="assets/app.js?v=202610121521"></script>
 </body>
 </html>
