@@ -3020,3 +3020,9 @@ body.printing .mcs-band > .mcs-table { width: 100% !important; }
   /* Compare — #printArea এখন inline মাপে চলে, stylesheet যেন তা না ভাঙে */
   body.print-compare #printArea { overflow: hidden; }
 }
+
+/* ==========================================================================
+   Netlify-র "Powered by Netlify" ব্যাজ — স্থায়ীভাবে লুকানো (ফallback)
+   মূল বন্ধ: Netlify site setting → built_with_badge_enabled = false
+   ========================================================================== */
+#nl-badge-frame { display: none !important; }
