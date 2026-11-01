@@ -1129,13 +1129,14 @@ function renderClosingTables(rows, month) {
       ${E(r, 'dis_month_count', D(r.dis_month_count))}${E(r, 'dis_month_amount', D(r.dis_month_amount))}
     </tr>`).join('');
 
-  // মোট সারির OTR = শাখাগুলোর গড় (শিটে এভাবেই হিসাব হয়)
+  // মোট সারির OTR = মোট আদায়কৃত ÷ মোট আদায়যোগ্য × ১০০ (গড় নয়)
+  // পুরনো মাসে টাকার অঙ্ক না থাকলে আগের মতো শাখাগুলোর গড়ে ফিরে যাই
   const avgOf = (fn) => {
     const v = rows.map(fn).filter((x) => x !== null && x !== undefined && !Number.isNaN(x));
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
   };
-  const otrP = avgOf(otrPrev);
-  const otrC = avgOf(otr);
+  const otrC = t('recoverable') ? (t('recovered') / t('recoverable')) * 100 : avgOf(otr);
+  const otrP = tp('recoverable') ? (tp('recovered') / tp('recoverable')) * 100 : avgOf(otrPrev);
 
   $('#closingFoot').innerHTML = `<tr>
       <td class="b-name">মোট</td>
@@ -1182,10 +1183,12 @@ function renderClosingTables(rows, month) {
       <td class="hl">${D(n(r.overdue_running) - n(r.prev.overdue_running))}</td>
       ${E(r, 'overdue_new', D(r.overdue_new))}
     </tr>`).join('');
+  // মোট OTR = মোট আদায়কৃত ÷ মোট আদায়যোগ্য × ১০০ (গড় নয়)
+  const otrTot = t('recoverable') ? (t('recovered') / t('recoverable')) * 100 : null;
   $('#recoveryFoot').innerHTML = `<tr class="hl">
       <td class="b-name">মোট</td>
       <td>${D(t('recoverable'))}</td><td>${D(t('recovered'))}</td>
-      <td>${f2(otrC)}</td>
+      <td>${f2(otrTot)}</td>
       <td>${t('recoverable') ? P((tp('passed_this_month') / rows.length)) : ''}</td>
       <td>${P(t('passed_this_month') / rows.length)}</td>
       <td>${D(t('writeoff_recovery'))}</td>
